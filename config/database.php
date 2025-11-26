@@ -19,7 +19,7 @@ try {
 }
 
 /**
- * Jalankan query (INSERT, UPDATE, DELETE)
+ * Jalankan query (INSERT, UPDATE, DELETE) tesss
  * @return bool
  */
 function executeQuery($sql, $params = []) {

@@ -13,6 +13,21 @@ $full_name    = $_SESSION['full_name'];
 $message      = '';
 $message_type = '';
 
+// Periksa dan tambahkan kolom Preferred_Day jika belum ada (untuk SQL Server)
+$column_exists = fetchOne("
+    SELECT * 
+    FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'Guidance_PKL' 
+    AND COLUMN_NAME = 'Preferred_Day'
+");
+
+if (!$column_exists) {
+    executeQuery("
+        ALTER TABLE Guidance_PKL 
+        ADD Preferred_Day VARCHAR(20) NULL
+    ");
+}
+
 // Ambil participant_id dari user yang login
 $participant = fetchOne("
     SELECT id 
@@ -28,19 +43,20 @@ $participant_id = $participant['id'];
 
 // PROSES TAMBAH Bimbingan
 if ($_POST && isset($_POST['action']) && $_POST['action'] === 'add_guidance') {
-    $title    = trim($_POST['title'] ?? '');
-    $question = trim($_POST['question_text'] ?? '');
+    $title          = trim($_POST['title'] ?? '');
+    $question       = trim($_POST['question_text'] ?? '');
+    $preferred_day  = trim($_POST['preferred_day'] ?? '');
 
-    if ($title && $question) {
+    if ($title && $question && $preferred_day) {
         executeQuery("
-            INSERT INTO Guidance_PKL (Participant_Id, Title, Question_Text, Status)
-            VALUES (?, ?, ?, 'pending')
-        ", [$participant_id, $title, $question]);
+            INSERT INTO Guidance_PKL (Participant_Id, Title, Question_Text, Preferred_Day, Status)
+            VALUES (?, ?, ?, ?, 'pending')
+        ", [$participant_id, $title, $question, $preferred_day]);
 
         $message      = "Permintaan bimbingan berhasil dikirim. Tunggu respon admin.";
         $message_type = "success";
     } else {
-        $message      = "Judul dan isi bimbingan wajib diisi.";
+        $message      = "Judul, isi bimbingan, dan hari wajib diisi.";
         $message_type = "danger";
     }
 }
@@ -51,6 +67,7 @@ $guidances = fetchAll("
         Id,
         Title,
         Question_Text,
+        Preferred_Day,
         Admin_Response,
         Status,
         Created_At,
@@ -192,6 +209,20 @@ $guidances = fetchAll("
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Hari yang Diinginkan</label>
+                            <select class="form-control" name="preferred_day" required>
+                                <option value="">Pilih Hari</option>
+                                <option value="Senin">Senin</option>
+                                <option value="Selasa">Selasa</option>
+                                <option value="Rabu">Rabu</option>
+                                <option value="Kamis">Kamis</option>
+                                <option value="Jumat">Jumat</option>
+                                <option value="Sabtu">Sabtu</option>
+                                <option value="Minggu">Minggu</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label"><i class="fas fa-align-left me-2"></i>Detail Bimbingan</label>
                             <textarea class="form-control" rows="4" name="question_text" required
                                       placeholder="Tuliskan detail pertanyaan atau konsultasi Anda..."></textarea>
@@ -222,6 +253,7 @@ $guidances = fetchAll("
                                 <tr>
                                     <th>#</th>
                                     <th>Judul</th>
+                                    <th>Hari</th>
                                     <th>Tanggal</th>
                                     <th>Status</th>
                                     <th>Jawaban</th>
@@ -233,6 +265,7 @@ $guidances = fetchAll("
                                     <tr>
                                         <td><?= $i++ ?></td>
                                         <td><strong><?= htmlspecialchars($g['title']) ?></strong></td>
+                                        <td><?= htmlspecialchars($g['preferred_day']) ?></td>
                                         <td><?= date('d M Y H:i', strtotime($g['created_at'])) ?></td>
 
                                         <td>
@@ -276,4 +309,3 @@ $guidances = fetchAll("
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
