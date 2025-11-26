@@ -41,9 +41,42 @@ if (!$participant) {
 
 
 // ============================
-// PROSES CHECK IN / OUT
+// PROSES CHECK IN / OUT (dengan validasi lokasi berbasis radius)
 // ============================
+// Koordinat pusat PT Krakatau Tirta Industri (sesuaikan dengan titik sebenarnya)
+$KTI_LAT =-6.014745; // contoh latitude - ganti dengan nilai sebenarnya
+$KTI_LNG = 106.022208; // contoh longitude - ganti dengan nilai sebenarnya
+$KTI_RADIUS_M = 700; // radius dalam meter (sesuaikan)
+
+function haversine_distance_m($lat1, $lon1, $lat2, $lon2) {
+    $earth_radius = 6371000; // meter
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLon = deg2rad($lon2 - $lon1);
+    $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
+    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+    return $earth_radius * $c;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+
+    // Periksa apakah client mengirimkan koordinat (wajib)
+    if (!isset($_POST['latitude']) || !isset($_POST['longitude'])) {
+        $message = 'Aktifkan GPS/Location pada perangkat Anda lalu coba lagi.';
+        $message_type = 'warning';
+        header('Location: attendance.php?msg=' . urlencode($message) . '&type=' . urlencode($message_type));
+        exit();
+    }
+
+    $lat = floatval($_POST['latitude']);
+    $lng = floatval($_POST['longitude']);
+    $distance_m = haversine_distance_m($lat, $lng, $KTI_LAT, $KTI_LNG);
+
+    if ($distance_m > $KTI_RADIUS_M) {
+        $message = 'Anda berada di luar KTI (jarak ' . round($distance_m) . ' m). Absensi tidak diizinkan.';
+        $message_type = 'warning';
+        header('Location: attendance.php?msg=' . urlencode($message) . '&type=' . urlencode($message_type));
+        exit();
+    }
 
     $today_attendance = fetchOne("
         SELECT * FROM attendance 
@@ -318,11 +351,13 @@ $riwayat_bulan_ini = fetchAll("
                     <div class="message <?= htmlspecialchars($message_type) ?>"><?= htmlspecialchars($message) ?></div>
                 <?php endif; ?>
 
-                <form method="POST" action="" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
-                    <button type="submit" name="action" value="check_in" class="btn"
-                        <?= $check_in_disabled ? 'disabled' : '' ?> aria-label="Check In">✅ Check In</button>
-                    <button type="submit" name="action" value="check_out" class="btn"
-                        <?= $check_out_disabled ? 'disabled' : '' ?> aria-label="Check Out">🚪 Check Out</button>
+                <form id="attendanceForm" method="POST" action="" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
+                    <input type="hidden" name="accuracy" id="accuracy">
+                    <input type="hidden" name="action" id="actionInput">
+                    <button type="button" id="btnCheckIn" onclick="attemptAttendance('check_in')" class="btn" <?= $check_in_disabled ? 'disabled' : '' ?> aria-label="Check In">✅ Check In</button>
+                    <button type="button" id="btnCheckOut" onclick="attemptAttendance('check_out')" class="btn" <?= $check_out_disabled ? 'disabled' : '' ?> aria-label="Check Out">🚪 Check Out</button>
                     <div style="align-self:center;color:#666;font-size:14px">
                         Waktu server: <?= htmlspecialchars($current_time) ?>
                     </div>
@@ -380,6 +415,7 @@ $riwayat_bulan_ini = fetchAll("
 </div> <!-- Tutup container-fluid -->
 
 <script>
+// Toggle rekap
 document.getElementById('toggleRekap').addEventListener('click', function() {
     const rekap = document.getElementById('rekapContainer');
     const btn   = document.getElementById('toggleRekap');
@@ -391,6 +427,61 @@ document.getElementById('toggleRekap').addEventListener('click', function() {
         btn.textContent     = 'Lihat Rekap Absensi ⬇️';
     }
 });
+
+// Konfigurasi radius (diambil dari PHP agar konsisten)
+const KTI_LAT = <?php echo json_encode($KTI_LAT); ?>;
+const KTI_LNG = <?php echo json_encode($KTI_LNG); ?>;
+const KTI_RADIUS_M = <?php echo json_encode($KTI_RADIUS_M); ?>;
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    function toRad(x) { return x * Math.PI / 180; }
+    const R = 6371000; // meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function attemptAttendance(action) {
+    const btn = (action === 'check_in') ? document.getElementById('btnCheckIn') : document.getElementById('btnCheckOut');
+    if (btn.disabled) return; // respect disabled state
+
+    if (!navigator.geolocation) {
+        alert('GPS/Location tidak tersedia pada perangkat ini.');
+        return;
+    }
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Mencari lokasi...';
+
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy || 0;
+        const dist = haversineMeters(lat, lng, KTI_LAT, KTI_LNG);
+
+        if (dist > KTI_RADIUS_M) {
+            alert('Anda berada di luar wilayah PT Krakatau Tirta Industri (jarak ' + Math.round(dist) + ' m). Absensi tidak diizinkan.');
+            btn.textContent = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+        document.getElementById('accuracy').value = acc;
+        document.getElementById('actionInput').value = action;
+        document.getElementById('attendanceForm').submit();
+    }, function(err) {
+        let msg = 'Gagal mendapatkan lokasi. Pastikan GPS/Location ON dan izinkan akses lokasi.';
+        if (err && err.code === 1) msg = 'Izin lokasi ditolak. Aktifkan izin lokasi dan coba lagi.';
+        alert(msg);
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
 </script>
 </body>
 </html>
