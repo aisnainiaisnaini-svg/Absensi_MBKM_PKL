@@ -444,14 +444,37 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 }
 
 function attemptAttendance(action) {
+    // Periksa izin & platform terlebih dahulu
+    checkAndHandlePermission(action);
+}
+</script>
+<!-- Permission modal (custom, minimal) -->
+<div id="permissionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:1200;">
+    <div style="background:#fff;padding:20px;border-radius:10px;max-width:520px;width:90%;box-shadow:0 6px 20px rgba(0,0,0,0.3);">
+        <h5 id="permissionModalTitle">Izin Lokasi</h5>
+        <div id="permissionModalBody" style="margin-top:12px;color:#333"></div>
+        <div style="text-align:right;margin-top:14px;"><button class="btn" onclick="hidePermissionModal()">Tutup</button></div>
+    </div>
+</div>
+
+<script>
+// Permission helper functions
+function isMobilePlatform() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    return /android/i.test(ua) || /iPad|iPhone|iPod/.test(ua);
+}
+function showPermissionModal(title, htmlContent) {
+    let modal = document.getElementById('permissionModal');
+    if (!modal) return alert(title + '\n\n' + htmlContent.replace(/<[^>]+>/g, '\n'));
+    document.getElementById('permissionModalTitle').innerText = title;
+    document.getElementById('permissionModalBody').innerHTML = htmlContent;
+    modal.style.display = 'flex';
+}
+function hidePermissionModal() { const modal = document.getElementById('permissionModal'); if (modal) modal.style.display = 'none'; }
+
+function getLocationAndSubmit(action) {
     const btn = (action === 'check_in') ? document.getElementById('btnCheckIn') : document.getElementById('btnCheckOut');
-    if (btn.disabled) return; // respect disabled state
-
-    if (!navigator.geolocation) {
-        alert('GPS/Location tidak tersedia pada perangkat ini.');
-        return;
-    }
-
+    if (btn.disabled) return;
     const originalText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Mencari lokasi...';
@@ -481,6 +504,61 @@ function attemptAttendance(action) {
         btn.textContent = originalText;
         btn.disabled = false;
     }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+function checkAndHandlePermission(action) {
+    // Deteksi apakah origin aman (HTTPS) atau localhost/127.0.0.1
+    const isLocalhost = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    const isSecure = (location.protocol === 'https:') || isLocalhost;
+
+    // Jika tidak aman (HTTP) beri tahu user dan tawarkan fallback percobaan
+    if (!isSecure) {
+        const instr = `
+            <p>Halaman ini dimuat lewat <strong>HTTP</strong>. Banyak browser memblokir akses lokasi pada koneksi tidak aman.</p>
+            <p>Solusi yang direkomendasikan:</p>
+            <ul>
+                <li>Gunakan HTTPS (pasang SSL / Let's Encrypt) atau akses melalui <code>localhost</code>.</li>
+                <li>Gunakan tunnel seperti <code>ngrok</code> untuk membuat HTTPS sementara selama pengujian.</li>
+                <li>Atau jalankan sebagai WebView native / aplikasi jika ingin di ponsel.</li>
+            </ul>
+            <p>Kami akan mencoba meminta lokasi sekarang, tetapi jika browser menolak maka Anda harus menggunakan salah satu solusi di atas.</p>
+        `;
+        showPermissionModal('Halaman Tidak Aman (HTTP)', instr + `<p style="margin-top:8px;"><button class="btn" onclick="hidePermissionModal(); getLocationAndSubmit('`+action+`')">Coba Minta Lokasi Sekarang</button></p>`);
+        return;
+    }
+
+    // jika API geolocation tidak ada
+    if (!navigator.geolocation) {
+        showPermissionModal('Location Unavailable', '<p>GPS/Location API tidak tersedia di browser ini.</p>');
+        return;
+    }
+
+    // Periksa status izin bila Permissions API tersedia
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+            if (result.state === 'granted' || result.state === 'prompt') {
+                getLocationAndSubmit(action);
+            } else { // denied
+                const desktopInstr = `
+                    <p>Izin lokasi untuk browser Anda diblokir.</p>
+                    <p>Untuk mengaktifkan kembali, buka pengaturan situs pada browser Anda dan izinkan Location untuk situs ini. Contoh:</p>
+                    <ul>
+                        <li>Chrome: klik ikon gembok di bilah alamat → Site settings → Location → Allow.</li>
+                        <li>Firefox: Preferences → Privacy & Security → Permissions → Location → Settings.</li>
+                        <li>Edge: klik ikon gembok → Site permissions → Location → Allow.</li>
+                    </ul>
+                    <p>Setelah mengubah, muat ulang halaman lalu coba lagi.</p>
+                `;
+                showPermissionModal('Izin Lokasi Diblokir', desktopInstr);
+            }
+        }).catch(function() {
+            // jika Permissions API error, fallback ke meminta lokasi langsung
+            getLocationAndSubmit(action);
+        });
+    } else {
+        // fallback: langsung minta lokasi (browser akan prompt jika perlu)
+        getLocationAndSubmit(action);
+    }
 }
 </script>
 </body>
