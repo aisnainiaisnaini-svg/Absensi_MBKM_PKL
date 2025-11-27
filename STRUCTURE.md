@@ -40,7 +40,7 @@ aplikasi-pengawasan-magang/
 - ✅ Dashboard dengan statistik pribadi
 - ✅ Absensi harian (check-in/check-out)
 - ✅ Riwayat kehadiran dengan filter bulan
-- ✅ Pengajuan izin (sakit, izin pribadi, keperluan mendesak)
+- ✅ Pengajuan izin (sakit, izin pribadi, izin akademik)
 - ✅ Laporan kegiatan dengan upload file
 - ✅ Detail profil dan statistik
 

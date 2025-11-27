@@ -20,7 +20,7 @@ Aplikasi web untuk mengelola dan memantau kegiatan magang dan PKL di lingkungan 
 - Perhitungan jam kerja otomatis
 
 ### 4. Manajemen Izin
-- Pengajuan izin online (sakit, izin pribadi, keperluan mendesak)
+- Pengajuan izin online (sakit, izin pribadi, izin akademik)
 - Persetujuan izin oleh pembimbing
 - Tracking status pengajuan
 

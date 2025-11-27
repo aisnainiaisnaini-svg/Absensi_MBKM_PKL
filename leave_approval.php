@@ -318,7 +318,8 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                                                     $type_labels = [
                                                         'sakit'              => 'Sakit',
                                                         'izin'               => 'Izin Pribadi',
-                                                        'keperluan_mendesak' => 'Keperluan Mendesak'
+                                                        'keperluan_mendesak' => 'Izin Akademik',
+                                                        'izin_akademik'      => 'Izin Akademik'
                                                     ];
                                                     echo $type_labels[$leave['leave_type']] ?? $leave['leave_type'];
                                                     ?>
@@ -327,9 +328,9 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                                             <div class="col-6">
                                                 <h6>Periode</h6>
                                                 <small class="text-muted">
-                                                    <?= date('d M Y', strtotime($leave['start_date'])) ?>
+                                                    <?= date('d M Y H:i', strtotime($leave['start_date'])) ?>
                                                     <?php if ($leave['start_date'] !== $leave['end_date']): ?>
-                                                        - <?= date('d M Y', strtotime($leave['end_date'])) ?>
+                                                        - <?= date('d M Y H:i', strtotime($leave['end_date'])) ?>
                                                     <?php endif; ?>
                                                 </small>
                                             </div>
@@ -340,6 +341,15 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                                         <h6>Alasan</h6>
                                         <p class="text-muted"><?= htmlspecialchars($leave['reason']) ?></p>
                                     </div>
+
+                                    <?php if (!empty($leave['file_path'])): ?>
+                                    <div class="mb-3">
+                                        <h6>Lampiran</h6>
+                                        <a href="<?= htmlspecialchars($leave['file_path']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download me-1"></i> Lihat Lampiran
+                                        </a>
+                                    </div>
+                                    <?php endif; ?>
                                     
                                     <?php if ($leave['status'] === 'pending'): ?>
                                         <div class="d-flex gap-2">

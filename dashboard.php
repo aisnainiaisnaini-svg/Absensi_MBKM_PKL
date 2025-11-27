@@ -354,6 +354,7 @@ elseif ($role === 'admin') {
                 <a class="nav-link" href="admin/bimbingan_pkl.php"><i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan PKL</a>
                 <a class="nav-link" href="leave_approval.php"><i class="fas fa-check-circle me-2"></i>Persetujuan Izin</a>
                 <a class="nav-link" href="reports_review.php"><i class="fas fa-clipboard-check me-2"></i>Review Laporan</a>
+                <a class="nav-link" href="reports_review.php"><i class="fas fa-clipboard-check me-2"></i>Review Laporan</a>
                 <a class="nav-link" href="admin/divisions.php"><i class="fas fa-building me-2"></i>Kelola Divisi</a>
                 <a class="nav-link" href="admin/reports.php"><i class="fas fa-chart-bar me-2"></i>Laporan Sistem</a>
             <?php endif; ?>

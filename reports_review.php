@@ -334,7 +334,7 @@ if ($reviewed_reports > 0) {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"></button>
                         <button type="submit" class="btn btn-primary">Submit Review</button>
                     </div>
                 </form>

@@ -365,6 +365,11 @@ $riwayat_bulan_ini = fetchAll("
                     </div>
                 </form>
 
+                <div id="location-details" style="padding: 12px; border-radius: 10px; background: #e9ecef; margin-bottom: 18px; display: none;">
+                    <h6 style="margin-bottom: 8px;">📍 Info Lokasi Anda</h6>
+                    <div id="location-content"></div>
+                </div>
+
                 <div class="section-title">📅 Ringkasan Hari Ini</div>
                 <table>
                     <tr>
@@ -620,6 +625,50 @@ function hideLocationConfirmModal() {
         window._locationConfirmCancel = null;
     }
 }
+
+//  새로 추가된 스크립트: 페이지 로드 시 위치 정보 업데이트
+document.addEventListener('DOMContentLoaded', function() {
+    const locationDetails = document.getElementById('location-details');
+    const locationContent = document.getElementById('location-content');
+
+    if (!locationDetails || !locationContent) return;
+
+    locationDetails.style.display = 'block';
+    locationContent.innerHTML = '<p>Mencari lokasi Anda...</p>';
+
+    if (!navigator.geolocation) {
+        locationContent.innerHTML = '<p style="color: red;">Geolocation tidak didukung oleh browser ini.</p>';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const dist = haversineMeters(lat, lng, KTI_LAT, KTI_LNG);
+        const distanceRounded = Math.round(dist);
+
+        let statusMessage = '';
+        if (dist > KTI_RADIUS_M) {
+            statusMessage = `<p style="color: red; font-weight: bold;">Anda berada di luar radius absensi (${distanceRounded} m).</p>`;
+        } else {
+            statusMessage = `<p style="color: green; font-weight: bold;">Anda berada di dalam radius absensi (${distanceRounded} m).</p>`;
+        }
+
+        locationContent.innerHTML = `
+            ${statusMessage}
+            <ul>
+                <li><strong>Jarak ke KTI:</strong> ${distanceRounded} meter (maks ${KTI_RADIUS_M} m)</li>
+                <li><strong>Koordinat Anda:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</li>
+            </ul>
+        `;
+    }, function(err) {
+        let errorMessage = 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan izin lokasi diberikan.';
+        if (err.code === 1) {
+            errorMessage = 'Izin lokasi ditolak. Aktifkan di pengaturan browser Anda.';
+        }
+        locationContent.innerHTML = `<p style="color: red;">${errorMessage}</p>`;
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+});
 </script>
 <div class="drawer-backdrop"></div>
 <script src="assets/js/drawer.js"></script>

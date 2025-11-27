@@ -131,7 +131,8 @@ function getLeaveTypeLabel($type) {
     $types = [
         'sakit' => 'Sakit',
         'izin' => 'Izin Pribadi',
-        'keperluan_mendesak' => 'Keperluan Mendesak'
+        'keperluan_mendesak' => 'Izin Akademik',
+        'izin_akademik'      => 'Izin Akademik'
     ];
     
     return $types[$type] ?? ucfirst($type);

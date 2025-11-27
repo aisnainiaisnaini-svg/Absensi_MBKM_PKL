@@ -335,7 +335,7 @@ $reports = fetchAll("
                                 <h5 class="mb-3">
                                     <i class="fas fa-history me-2"></i>
                                     Riwayat Laporan Kegiatan
-                                </h5>
+                                </h4>
                                 
                                 <div class="table-responsive">
                                     <table class="table table-hover">

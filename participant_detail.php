@@ -296,13 +296,13 @@ foreach ($recent_attendance as $attendance) {
                         <a class="nav-link" href="attendance_history.php">
                             <i class="fas fa-history me-2"></i>Riwayat Kehadiran
                         </a>
-                        <a class="nav-link" href="leave_request.php">
-                            <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
-                        </a>
-                        <a class="nav-link" href="activity_report.php">
-                            <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
-                        </a>
-                    <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
+                                                                            <a class="nav-link" href="leave_request.php">
+                                                                                <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
+                                                                            </a>
+                                                                            <a class="nav-link" href="activity_report.php">
+                                                                                <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
+                                                                            </a>
+                                                                        <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
                         <a class="nav-link" href="participants.php">
                             <i class="fas fa-users me-2"></i>Data Peserta
                         </a>
@@ -699,7 +699,7 @@ foreach ($recent_attendance as $attendance) {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div>                    
                 </div>
             </div>
         </div>

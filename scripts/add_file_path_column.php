@@ -5,24 +5,13 @@
 require_once __DIR__ . '/../config/database.php';
 
 try {
-    // Use the same DB connection helper if available, otherwise create new PDO
     if (function_exists('getConnection')) {
         $pdo = getConnection();
-    } else {
-        // Try to read config from config/database.php (assumes it sets $pdo or similar)
-        // Fallback: attempt to use $pdo if defined by included file
-        if (isset($pdo) && $pdo instanceof PDO) {
-            // ok
-        } else {
-            // Try to build from config arrays if present
-            if (isset($db_dsn) && isset($db_user)) {
-                $pdo = new PDO($db_dsn, $db_user, $db_pass ?? null);
-            } else {
-                // As last resort, create a new PDO using common SQL Server DSN from config/database.php
-                // Modify below if your config requires different credentials
-                // This script expects config/database.php to make a $pdo available or provide helper.
-            }
-        }
+    } else if (isset($pdo) && $pdo instanceof PDO) {
+        // ok, pdo is already set
+    } else if (isset($conn) && $conn instanceof PDO) {
+        // use $conn from config/database.php
+        $pdo = $conn;
     }
 
     if (!isset($pdo) || !$pdo instanceof PDO) {

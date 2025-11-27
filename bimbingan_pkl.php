@@ -13,21 +13,6 @@ $full_name    = $_SESSION['full_name'];
 $message      = '';
 $message_type = '';
 
-// Periksa dan tambahkan kolom Preferred_Day jika belum ada (untuk SQL Server)
-$column_exists = fetchOne("
-    SELECT * 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_NAME = 'Guidance_PKL' 
-    AND COLUMN_NAME = 'Preferred_Day'
-");
-
-if (!$column_exists) {
-    executeQuery("
-        ALTER TABLE Guidance_PKL 
-        ADD Preferred_Day VARCHAR(20) NULL
-    ");
-}
-
 // Ambil participant_id dari user yang login
 $participant = fetchOne("
     SELECT id 
@@ -44,19 +29,18 @@ $participant_id = $participant['id'];
 // PROSES TAMBAH Bimbingan
 if ($_POST && isset($_POST['action']) && $_POST['action'] === 'add_guidance') {
     $title          = trim($_POST['title'] ?? '');
-    $question       = trim($_POST['question_text'] ?? '');
     $preferred_day  = trim($_POST['preferred_day'] ?? '');
 
-    if ($title && $question && $preferred_day) {
+    if ($title && $preferred_day) {
         executeQuery("
-            INSERT INTO Guidance_PKL (Participant_Id, Title, Question_Text, Preferred_Day, Status)
-            VALUES (?, ?, ?, ?, 'pending')
-        ", [$participant_id, $title, $question, $preferred_day]);
+            INSERT INTO Guidance_PKL (Participant_Id, Title, Preferred_Day, Status)
+            VALUES (?, ?, ?, 'pending')
+        ", [$participant_id, $title, $preferred_day]);
 
         $message      = "Permintaan bimbingan berhasil dikirim. Tunggu respon admin.";
         $message_type = "success";
     } else {
-        $message      = "Judul, isi bimbingan, dan hari wajib diisi.";
+        $message      = "Judul dan hari wajib diisi.";
         $message_type = "danger";
     }
 }
@@ -66,7 +50,6 @@ $guidances = fetchAll("
     SELECT 
         Id,
         Title,
-        Question_Text,
         Preferred_Day,
         Admin_Response,
         Status,
@@ -160,7 +143,6 @@ $guidances = fetchAll("
                 <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
                 <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
                 <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
-                <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
 
                 <!-- TAMPILKAN HANYA UNTUK siswa_pkl -->
                 <?php if ($_SESSION['role'] === 'siswa_pkl'): ?>
@@ -213,18 +195,20 @@ $guidances = fetchAll("
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Hari yang Diinginkan</label>
+                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Jadwal Bimbingan</label>
                             <select class="form-control" name="preferred_day" required>
-                                <option value="">Pilih Hari</option>
-                                <option value="Selasa">Selasa</option>
-                                <option value="Kamis">Kamis</option>
+                                <option value="">Pilih Jadwal Bimbingan</option>
+                                <option value="Senin, 09:00">Senin, 09:00</option>
+                                <option value="Senin, 14:00">Senin, 14:00</option>
+                                <option value="Selasa, 10:00">Selasa, 10:00</option>
+                                <option value="Selasa, 15:00">Selasa, 15:00</option>
+                                <option value="Rabu, 09:00">Rabu, 09:00</option>
+                                <option value="Rabu, 13:00">Rabu, 13:00</option>
+                                <option value="Kamis, 10:00">Kamis, 10:00</option>
+                                <option value="Kamis, 14:00">Kamis, 14:00</option>
+                                <option value="Jumat, 09:00">Jumat, 09:00</option>
+                                <option value="Jumat, 13:00">Jumat, 13:00</option>
                             </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-align-left me-2"></i>Detail Bimbingan</label>
-                            <textarea class="form-control" rows="4" name="question_text" required
-                                      placeholder="Tuliskan detail pertanyaan atau konsultasi Anda..."></textarea>
                         </div>
 
                         <button class="btn-submit">
