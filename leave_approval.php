@@ -95,6 +95,7 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
     <title>Persetujuan Izin - Pembimbing</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/drawer.css">
     <style>
         .sidebar {
             min-height: 100vh;
@@ -200,6 +201,15 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                     </a>
                 </nav>
             </div>
+
+            <!-- Drawer backdrop for small screens -->
+            <div class="drawer-backdrop" aria-hidden="true"></div>
+
+            <!-- Drawer toggle (hamburger) visible on small screens -->
+            <button class="btn btn-outline-secondary drawer-toggle position-fixed top-0 start-0 m-3" 
+                    style="z-index:1200; border-radius:10px;" aria-label="Toggle sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
@@ -432,6 +442,7 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/drawer.js"></script>
     <script>
         function approveLeave(leaveId) {
             document.getElementById('approve_leave_id').value = leaveId;

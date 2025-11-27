@@ -87,6 +87,7 @@ foreach ($recent_attendance as $attendance) {
     <title>Detail Peserta - <?= htmlspecialchars($participant['full_name']) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/drawer.css">
     <style>
         .sidebar {
             min-height: 100vh;
@@ -704,6 +705,9 @@ foreach ($recent_attendance as $attendance) {
         </div>
     </div>
     
+    <div class="drawer-backdrop"></div>
+    <button class="btn drawer-toggle floating-toggle" aria-label="Toggle menu" style="position:fixed;bottom:18px;left:18px;z-index:1400;">☰</button>
+    <script src="assets/js/drawer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

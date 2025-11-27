@@ -85,6 +85,7 @@ $guidances = fetchAll("
     <title>Bimbingan PKL - Siswa PKL</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/drawer.css">
 
     <style>
         .sidebar {
@@ -179,9 +180,12 @@ $guidances = fetchAll("
 
                 <!-- HEADER -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h2><i class="fas fa-comments me-2"></i>Bimbingan PKL</h2>
-                        <p class="text-muted mb-0">Ajukan bimbingan dan lihat respon pembimbing PKL</p>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button class="btn drawer-toggle me-2" aria-label="Toggle menu">☰</button>
+                        <div>
+                            <h2><i class="fas fa-comments me-2"></i>Bimbingan PKL</h2>
+                            <p class="text-muted mb-0">Ajukan bimbingan dan lihat respon pembimbing PKL</p>
+                        </div>
                     </div>
                 </div>
 
@@ -212,13 +216,8 @@ $guidances = fetchAll("
                             <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Hari yang Diinginkan</label>
                             <select class="form-control" name="preferred_day" required>
                                 <option value="">Pilih Hari</option>
-                                <option value="Senin">Senin</option>
                                 <option value="Selasa">Selasa</option>
-                                <option value="Rabu">Rabu</option>
                                 <option value="Kamis">Kamis</option>
-                                <option value="Jumat">Jumat</option>
-                                <option value="Sabtu">Sabtu</option>
-                                <option value="Minggu">Minggu</option>
                             </select>
                         </div>
 
@@ -306,6 +305,9 @@ $guidances = fetchAll("
     </div>
 </div>
 
+</script>
+<div class="drawer-backdrop"></div>
+<script src="assets/js/drawer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
