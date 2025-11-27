@@ -1,0 +1,46 @@
+/* Responsive drawer for sidebar */
+.sidebar {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+/* Desktop/tablet: keep normal layout */
+@media (min-width: 992px) {
+  .sidebar { position: relative; transform: none !important; box-shadow: none; }
+}
+/* On smaller screens, transform sidebar into off-canvas drawer */
+@media (max-width: 991.98px) {
+  .sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    z-index: 1100;
+    transform: translateX(-110%);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    overflow-y: auto;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  /* push main content when drawer open */
+  .main-content.shifted {
+    margin-left: 260px;
+    transition: margin-left 0.3s ease;
+  }
+  /* dim backdrop */
+  .drawer-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1090;
+  }
+  .drawer-backdrop.show { display: block; }
+  /* show toggle button on small screens */
+  .drawer-toggle { display: inline-block !important; }
+}
+/* Hide toggle on large screens */
+.drawer-toggle { display: none; }
+
+/* small style tweaks for drawer links */
+.sidebar .nav-link { display:block; padding:12px 18px; }

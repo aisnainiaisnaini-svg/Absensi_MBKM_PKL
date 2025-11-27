@@ -193,6 +193,7 @@ $riwayat_bulan_ini = fetchAll("
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/drawer.css">
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -340,6 +341,7 @@ $riwayat_bulan_ini = fetchAll("
         <div class="col-md-9 col-lg-10 main-content">
             <div class="p-4">
                 <header>
+                    <button class="btn drawer-toggle me-2" aria-label="Toggle menu">☰</button>
                     <h1>Absensi Peserta Magang & Pkl</h1>
                     <a href="logout.php">Logout</a>
                 </header>
@@ -457,6 +459,18 @@ function attemptAttendance(action) {
     </div>
 </div>
 
+<!-- Location confirm modal -->
+<div id="locationConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:1300;">
+    <div style="background:#fff;padding:18px;border-radius:10px;max-width:520px;width:92%;box-shadow:0 6px 20px rgba(0,0,0,0.3);">
+        <h5 id="locationConfirmTitle">Konfirmasi Lokasi</h5>
+        <div id="locationConfirmBody" style="margin-top:10px;color:#333"></div>
+        <div style="text-align:right;margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn" onclick="hideLocationConfirmModal()">Batal</button>
+            <button class="btn" id="confirmLocationBtn">Konfirmasi & Kirim</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // Permission helper functions
 function isMobilePlatform() {
@@ -485,18 +499,36 @@ function getLocationAndSubmit(action) {
         const acc = pos.coords.accuracy || 0;
         const dist = haversineMeters(lat, lng, KTI_LAT, KTI_LNG);
 
+        const distanceRounded = Math.round(dist);
+
         if (dist > KTI_RADIUS_M) {
-            alert('Anda berada di luar wilayah PT Krakatau Tirta Industri (jarak ' + Math.round(dist) + ' m). Absensi tidak diizinkan.');
+            alert('Anda berada di luar wilayah PT Krakatau Tirta Industri (jarak ' + distanceRounded + ' m). Absensi tidak diizinkan.');
             btn.textContent = originalText;
             btn.disabled = false;
             return;
         }
 
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
-        document.getElementById('accuracy').value = acc;
-        document.getElementById('actionInput').value = action;
-        document.getElementById('attendanceForm').submit();
+        // Tampilkan modal konfirmasi lokasi sebelum submit
+        const body = `
+            <p>Lokasi terdeteksi:</p>
+            <ul>
+                <li><strong>Latitude:</strong> ${lat}</li>
+                <li><strong>Longitude:</strong> ${lng}</li>
+                <li><strong>Akurasi:</strong> ${acc} meter</li>
+                <li><strong>Jarak ke KTI:</strong> ${distanceRounded} meter (maks ${KTI_RADIUS_M} m)</li>
+            </ul>
+            <p>Tekan <strong>Konfirmasi & Kirim</strong> untuk melanjutkan absensi.</p>
+        `;
+        showLocationConfirmModal(body, function confirmHandler() {
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            document.getElementById('accuracy').value = acc;
+            document.getElementById('actionInput').value = action;
+            document.getElementById('attendanceForm').submit();
+        }, function cancelHandler() {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        });
     }, function(err) {
         let msg = 'Gagal mendapatkan lokasi. Pastikan GPS/Location ON dan izinkan akses lokasi.';
         if (err && err.code === 1) msg = 'Izin lokasi ditolak. Aktifkan izin lokasi dan coba lagi.';
@@ -560,6 +592,36 @@ function checkAndHandlePermission(action) {
         getLocationAndSubmit(action);
     }
 }
+
+// Location confirm modal helpers (tampilkan modal konfirmasi sebelum submit)
+function showLocationConfirmModal(htmlContent, onConfirm, onCancel) {
+    const modal = document.getElementById('locationConfirmModal');
+    if (!modal) {
+        if (onConfirm) onConfirm();
+        return;
+    }
+    document.getElementById('locationConfirmBody').innerHTML = htmlContent;
+    modal.style.display = 'flex';
+    const btn = document.getElementById('confirmLocationBtn');
+    btn.disabled = false;
+    btn.onclick = function() {
+        modal.style.display = 'none';
+        if (onConfirm) onConfirm();
+    };
+    // store cancel handler so hideLocationConfirmModal can call it
+    window._locationConfirmCancel = onCancel || null;
+}
+
+function hideLocationConfirmModal() {
+    const modal = document.getElementById('locationConfirmModal');
+    if (modal) modal.style.display = 'none';
+    if (window._locationConfirmCancel) {
+        try { window._locationConfirmCancel(); } catch (e) {}
+        window._locationConfirmCancel = null;
+    }
+}
 </script>
+<div class="drawer-backdrop"></div>
+<script src="assets/js/drawer.js"></script>
 </body>
 </html>
