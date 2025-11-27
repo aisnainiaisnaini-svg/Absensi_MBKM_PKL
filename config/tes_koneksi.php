@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
 $dbname = 'db_Pengawas';
-$username = 'Ais';
-$password = '123';
+$username = 'sa';
+$password = '303030';
 
 try {
     $conn = new PDO("sqlsrv:Server=$host;Database=$dbname", $username, $password);
