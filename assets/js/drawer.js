@@ -1,34 +1,44 @@
 (function(){
-  function toggleDrawer(open) {
-    const sidebar = document.querySelector('.sidebar');
-    const main = document.querySelector('.main-content');
-    const backdrop = document.querySelector('.drawer-backdrop');
-    if(!sidebar) return;
-    if(open) {
-      sidebar.classList.add('open');
-      if(main) main.classList.add('shifted');
-      if(backdrop) backdrop.classList.add('show');
-      document.body.style.overflow = 'hidden';
-    } else {
-      sidebar.classList.remove('open');
-      if(main) main.classList.remove('shifted');
-      if(backdrop) backdrop.classList.remove('show');
-      document.body.style.overflow = '';
-    }
-  }
-
+  // Menangani backdrop untuk offcanvas
   document.addEventListener('click', function(e){
-    if(e.target.matches('.drawer-toggle')){
-      const sidebar = document.querySelector('.sidebar');
-      toggleDrawer(!sidebar.classList.contains('open'));
-    }
-    if(e.target.matches('.drawer-backdrop') || e.target.closest('.drawer-close')){
-      toggleDrawer(false);
+    if(e.target.matches('.drawer-backdrop')) {
+      // Tutup offcanvas saat backdrop diklik
+      var offcanvasElement = document.querySelector('.offcanvas.show');
+      if(offcanvasElement) {
+        var offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if(offcanvas) {
+          offcanvas.hide();
+        }
+      }
     }
   });
 
-  // Close on ESC
+  // Close on ESC - hanya jika offcanvas terbuka
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') toggleDrawer(false);
+    if(e.key === 'Escape') {
+      var offcanvasElement = document.querySelector('.offcanvas.show');
+      if(offcanvasElement) {
+        var offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if(offcanvas) {
+          offcanvas.hide();
+        }
+      }
+    }
+  });
+
+  // Tampilkan backdrop saat offcanvas ditampilkan
+  document.addEventListener('show.bs.offcanvas', function () {
+    var backdrop = document.querySelector('.drawer-backdrop');
+    if(backdrop) {
+      backdrop.classList.add('show');
+    }
+  });
+
+  // Sembunyikan backdrop saat offcanvas disembunyikan
+  document.addEventListener('hidden.bs.offcanvas', function () {
+    var backdrop = document.querySelector('.drawer-backdrop');
+    if(backdrop) {
+      backdrop.classList.remove('show');
+    }
   });
 })();

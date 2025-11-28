@@ -7,7 +7,10 @@ define('APP_VERSION', '1.0.0');
 define('APP_DESCRIPTION', 'Sistem pengelolaan dan pengawasan kegiatan magang dan PKL');
 
 // URL aplikasi (sesuaikan dengan domain Anda)
-define('APP_URL', 'http://localhost/Absensi Magang_PKL');
+define('APP_URL', 'http://localhost/Absensi_MBKM_PKL');
+
+// Base path for file system operations
+define('BASE_PATH', __DIR__ . '/../');
 
 // Konfigurasi email (untuk notifikasi)
 define('MAIL_HOST', 'smtp.gmail.com');
@@ -73,7 +76,7 @@ function isImage($filename) {
 
 function getFileIcon($filename) {
     $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    
+
     switch ($extension) {
         case 'pdf':
             return 'fas fa-file-pdf text-danger';
@@ -108,11 +111,11 @@ function calculateWorkHours($check_in, $check_out) {
     if (!$check_in || !$check_out) {
         return 0;
     }
-    
+
     $start = strtotime($check_in);
     $end = strtotime($check_out);
     $hours = ($end - $start) / 3600;
-    
+
     return round($hours, 2);
 }
 
@@ -123,7 +126,7 @@ function getAttendanceStatus($status) {
         'sakit' => ['class' => 'info', 'icon' => 'user-injured', 'label' => 'Sakit'],
         'alpa' => ['class' => 'danger', 'icon' => 'times-circle', 'label' => 'Alpa']
     ];
-    
+
     return $statuses[$status] ?? ['class' => 'secondary', 'icon' => 'question', 'label' => 'Unknown'];
 }
 
@@ -134,7 +137,7 @@ function getLeaveTypeLabel($type) {
         'keperluan_mendesak' => 'Izin Akademik',
         'izin_akademik'      => 'Izin Akademik'
     ];
-    
+
     return $types[$type] ?? ucfirst($type);
 }
 
@@ -144,7 +147,7 @@ function getRoleLabel($role) {
         'pembimbing' => 'Pembimbing',
         'peserta' => 'Peserta'
     ];
-    
+
     return $roles[$role] ?? ucfirst($role);
 }
 
@@ -154,7 +157,7 @@ function getStatusLabel($status) {
         'selesai' => 'Selesai',
         'dikeluarkan' => 'Dikeluarkan'
     ];
-    
+
     return $statuses[$status] ?? ucfirst($status);
 }
 ?>
