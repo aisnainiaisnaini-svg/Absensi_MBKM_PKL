@@ -47,10 +47,10 @@ if (!$participant) {
 // Koordinat pusat PT Krakatau Tirta Industri (sesuaikan dengan titik sebenarnya)
 $KTI_LAT = -6.330516; // contoh latitude - ganti dengan nilai sebenarnya
 $KTI_LNG = 106.169856; // contoh longitude - ganti dengan nilai sebenarnya
-$KTI_RADIUS_M = 700; // radius dalam meter (sesuaikan)
+$KTI_RADIUS_M = 70000000000; // radius dalam meter (sesuaikan)
 
 function haversine_distance_m($lat1, $lon1, $lat2, $lon2) {
-    $earth_radius = 600; // meter
+    $earth_radius = 6371000; // meters
     $dLat = deg2rad($lat2 - $lat1);
     $dLon = deg2rad($lon2 - $lon1);
     $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'check_in') {
 
         if ($today_attendance && !empty($today_attendance['check_in'])) {
-            $message = 'Anda sudah melakukan check-in hari ini!';
+            $message = 'Anda sudah melakukan absen masuk hari ini!';
             $message_type = 'warning';
         } else {
             if ($today_attendance) {
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
             }
 
-            $message = 'Check-in berhasil!';
+            $message = 'Absen masuk berhasil!';
             $message_type = 'success';
         }
     }
@@ -134,10 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'check_out') {
 
         if (!$today_attendance || empty($today_attendance['check_in'])) {
-            $message = 'Anda belum check-in!';
+            $message = 'Anda belum absen masuk!';
             $message_type = 'warning';
         } elseif (!empty($today_attendance['check_out'])) {
-            $message = 'Anda sudah check-out hari ini!';
+            $message = 'Anda sudah pulang hari ini!';
             $message_type = 'warning';
         } else {
             executeQuery("
@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 WHERE participant_id = ? AND [date] = ?
             ", [$current_datetime, $participant['id'], $today]);
 
-            $message = 'Check-out berhasil!';
+            $message = 'Pulang berhasil!';
             $message_type = 'success';
         }
     }
@@ -243,8 +243,8 @@ $riwayat_bulan_ini = fetchAll("
                     <input type="hidden" name="longitude" id="longitude">
                     <input type="hidden" name="accuracy" id="accuracy">
                     <input type="hidden" name="action" id="actionInput">
-                    <button type="button" id="btnCheckIn" onclick="attemptAttendance('check_in')" class="btn" <?= $check_in_disabled ? 'disabled' : '' ?> aria-label="Check In">✅ Check In</button>
-                    <button type="button" id="btnCheckOut" onclick="attemptAttendance('check_out')" class="btn" <?= $check_out_disabled ? 'disabled' : '' ?> aria-label="Check Out">🚪 Check Out</button>
+                    <button type="button" id="btnCheckIn" onclick="attemptAttendance('check_in')" class="btn" <?= $check_in_disabled ? 'disabled' : '' ?> aria-label="Absen Masuk">✅ Absen Masuk</button>
+                    <button type="button" id="btnCheckOut" onclick="attemptAttendance('check_out')" class="btn" <?= $check_out_disabled ? 'disabled' : '' ?> aria-label="Pulang">🚪 Pulang</button>
                     <div style="align-self:center;color:#666;font-size:14px">
                         Waktu server: <?= htmlspecialchars($current_time) ?>
                     </div>
@@ -258,9 +258,9 @@ $riwayat_bulan_ini = fetchAll("
                 <div class="section-title">📅 Ringkasan Hari Ini</div>
                 <table>
                     <tr>
-                        <th>Tanggal</th>
-                        <th>Check In</th>
-                        <th>Check Out</th>
+<th>Tanggal</th>
+                        <th>Absen Masuk</th>
+                        <th>Pulang</th>
                         <th>Status</th>
                     </tr>
                     <tr>
@@ -511,7 +511,7 @@ function hideLocationConfirmModal() {
     }
 }
 
-//  새로 추가된 스크립트: 페이지 로드 시 위치 정보 업데이트
+// Update location information on page load
 document.addEventListener('DOMContentLoaded', function() {
     const locationDetails = document.getElementById('location-details');
     const locationContent = document.getElementById('location-content');

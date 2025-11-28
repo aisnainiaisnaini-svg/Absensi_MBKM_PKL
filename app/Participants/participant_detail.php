@@ -617,8 +617,8 @@ foreach ($recent_attendance as $attendance) {
                                             <thead>
                                                 <tr>
                                                     <th>Tanggal</th>
-                                                    <th>Check In</th>
-                                                    <th>Check Out</th>
+                                                    <th>Absen Masuk</th>
+                                                    <th>Pulang</th>
                                                     <th>Status</th>
                                                 </tr>
                                             </thead>

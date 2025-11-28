@@ -176,7 +176,7 @@ $available_months = fetchAll("
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Tanggal</th><th>Hari</th><th>Check In</th><th>Check Out</th><th>Durasi</th><th>Status</th><th>Catatan</th>
+                                    <th>Tanggal</th><th>Hari</th><th>Absen Masuk</th><th>Pulang</th><th>Durasi</th><th>Status</th><th>Catatan</th>
                                 </tr>
                             </thead>
                             <tbody>
