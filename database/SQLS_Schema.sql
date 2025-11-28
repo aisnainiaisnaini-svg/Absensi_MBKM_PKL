@@ -143,7 +143,7 @@ CREATE TABLE dbo.Schedules (
     Id           INT IDENTITY(1,1) PRIMARY KEY,
     Division_Id  INT NOT NULL,
     Day_Of_Week  VARCHAR(20) NOT NULL
-        CONSTRAINT CK_Schedules_DayOfWeek CHECK (Day_Of_Week IN 
+        CONSTRAINT CK_Schedules_DayOfWeek CHECK (Day_Of_Week IN
             ('monday','tuesday','wednesday','thursday','friday','saturday','sunday')),
     Start_Time   TIME NOT NULL,
     End_Time     TIME NOT NULL,
@@ -164,7 +164,7 @@ CREATE TABLE dbo.Guidance_PKL (
     Question_Text   VARCHAR(MAX) NOT NULL,
     Admin_Response  VARCHAR(MAX) NULL,
     [Status]        VARCHAR(20) NOT NULL
-        CONSTRAINT CK_GuidancePKL_Status CHECK ([Status] IN ('pending','diproses','selesai')),
+        CONSTRAINT CK_GuidancePKL_Status CHECK ([Status] IN ('pending','diproses','selesai','withdrawn')),
     Created_At      DATETIME2 NOT NULL DEFAULT GETDATE(),   -- FIXED WIB
     Responded_At    DATETIME2 NULL,
 

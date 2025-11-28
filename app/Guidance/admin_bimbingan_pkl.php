@@ -28,11 +28,11 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'update_guidance')
         executeQuery(
             "
             UPDATE Guidance_PKL
-            SET Status = ?, 
-                Admin_Response = ?, 
-                Responded_At = CASE 
-                    WHEN ? <> '' THEN SYSDATETIME() 
-                    ELSE Responded_At 
+            SET Status = ?,
+                Admin_Response = ?,
+                Responded_At = CASE
+                    WHEN ? <> '' THEN SYSDATETIME()
+                    ELSE Responded_At
                 END
             WHERE Id = ?
         ",
@@ -43,7 +43,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'update_guidance')
         executeQuery(
             "
             UPDATE Participants
-            SET Company_Supervisor = ?, 
+            SET Company_Supervisor = ?,
                 School_Supervisor  = ?
             WHERE Id = ?
         ",
@@ -83,7 +83,7 @@ if (!empty($filter_status)) {
 // =====================================
 $guidances = fetchAll(
     "
-    SELECT 
+    SELECT
         g.Id              AS guidance_id,
         g.Title           AS title,
         g.Question_Text   AS question_text,
@@ -91,13 +91,13 @@ $guidances = fetchAll(
         g.Status          AS status,
         g.Created_At      AS created_at,
         g.Responded_At    AS responded_at,
-        
+
         p.Id              AS participant_id,
         p.School          AS school,
         p.Major           AS major,
         p.Company_Supervisor AS company_supervisor,
         p.School_Supervisor  AS school_supervisor,
-        
+
         u.Full_Name       AS full_name,
         d.Name            AS division_name
     FROM Guidance_PKL g
@@ -250,6 +250,9 @@ $guidances = fetchAll(
                                     if ($g['status'] === 'selesai') {
                                         $badge_class = 'success';
                                     }
+                                    if ($g['status'] === 'withdrawn') {
+                                        $badge_class = 'dark';
+                                    }
                                     ?>
                                     <tr>
                                         <td><?= $no++ ?></td>
@@ -336,6 +339,9 @@ $guidances = fetchAll(
                                                                     <option value="selesai"
                                                                         <?= $g['status'] === 'selesai' ? 'selected' : '' ?>>
                                                                         Selesai</option>
+                                                                    <option value="withdrawn"
+                                                                        <?= $g['status'] === 'withdrawn' ? 'selected' : '' ?>>
+                                                                        Withdrawn</option>
                                                                 </select>
                                                             </div>
                                                             <div class="col-md-8">

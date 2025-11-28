@@ -16,8 +16,8 @@ $message_type = '';
 
 // Ambil participant_id dari user yang login
 $participant = fetchOne("
-    SELECT id 
-    FROM participants 
+    SELECT id
+    FROM participants
     WHERE user_id = ?
 ", [$user_id]);
 
@@ -46,9 +46,42 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'add_guidance') {
     }
 }
 
+// PROSES WITHDRAW Bimbingan
+if ($_POST && isset($_POST['action']) && $_POST['action'] === 'withdraw_guidance') {
+    $guidance_id = $_POST['guidance_id'] ?? 0;
+
+    if ($guidance_id) {
+        // Ambil status bimbingan saat ini
+        $current_guidance = fetchOne("
+            SELECT Status
+            FROM Guidance_PKL
+            WHERE Id = ? AND Participant_Id = ?
+        ", [$guidance_id, $participant_id]);
+
+        // Cek apakah status saat ini adalah 'pending'
+        if ($current_guidance && $current_guidance['status'] === 'pending') {
+            // Update status menjadi 'ditarik'
+            executeQuery("
+                UPDATE Guidance_PKL
+                SET Status = 'ditarik'
+                WHERE Id = ? AND Participant_Id = ?
+            ", [$guidance_id, $participant_id]);
+
+            $message = "Permintaan bimbingan berhasil ditarik.";
+            $message_type = "success";
+        } else {
+            $message = "Hanya permintaan bimbingan yang berstatus 'pending' yang dapat ditarik.";
+            $message_type = "danger";
+        }
+    } else {
+        $message = "ID bimbingan tidak valid.";
+        $message_type = "danger";
+    }
+}
+
 // Ambil semua bimbingan milik siswa ini
 $guidances = fetchAll("
-    SELECT 
+    SELECT
         Id,
         Title,
         Preferred_Day,
@@ -242,6 +275,7 @@ $guidances = fetchAll("
                                     <th>Tanggal</th>
                                     <th>Status</th>
                                     <th>Jawaban</th>
+                                    <th>Aksi</th>
                                 </tr>
                                 </thead>
 
@@ -258,7 +292,9 @@ $guidances = fetchAll("
                                             $badge = [
                                                 'pending' => 'warning',
                                                 'diproses' => 'info',
-                                                'selesai' => 'success'
+                                                'bimbing' => 'info',
+                                                'selesai' => 'success',
+                                                'withdrawn' => 'secondary'
                                             ][$g['status']] ?? 'secondary';
                                             ?>
                                             <span class="badge bg-<?= $badge ?>"><?= ucfirst($g['status']) ?></span>
@@ -277,6 +313,19 @@ $guidances = fetchAll("
                                                 <span class="text-muted small">Belum ada jawaban</span>
                                             <?php endif; ?>
                                         </td>
+
+                                        <td>
+                                            <?php if ($g['status'] === 'pending' ): ?>
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Apakah Anda yakin ingin menarik permintaan bimbingan ini?');">
+                                                    <input type="hidden" name="action" value="withdraw_guidance">
+                                                    <input type="hidden" name="guidance_id" value="<?= $g['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-undo me-1"></i>Withdra
+                                                        w
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                                 </tbody>
@@ -291,7 +340,6 @@ $guidances = fetchAll("
     </div>
 </div>
 
-</script>
 <div class="drawer-backdrop"></div>
 <script src="../../assets/js/drawer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
