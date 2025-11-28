@@ -320,8 +320,8 @@ $guidances = fetchAll("
                                                     <input type="hidden" name="action" value="withdraw_guidance">
                                                     <input type="hidden" name="guidance_id" value="<?= $g['id'] ?>">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                        <i class="fas fa-undo me-1"></i>Withdra
-                                                        w
+                                                        <i class="fas fa-undo me-1"></i>Withdraw
+                                                    
                                                     </button>
                                                 </form>
                                             <?php endif; ?>
