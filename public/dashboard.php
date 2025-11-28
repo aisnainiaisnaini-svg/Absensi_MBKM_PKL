@@ -243,7 +243,7 @@ elseif ($role === 'admin') {
         <div class="row">
 
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar p-0">
+            <aside class="col-md-3 col-lg-2 sidebar p-0 d-none d-md-block">
                 <div class="p-3">
                     <h4 class="text-center mb-4">
                         <i class="fas fa-graduation-cap me-2"></i>
@@ -297,17 +297,76 @@ elseif ($role === 'admin') {
                         <i class="fas fa-sign-out-alt me-2"></i>Logout
                     </a>
                 </nav>
+            </aside>
+
+            <!-- Mobile Menu Button -->
+            <div class="d-md-none p-3">
+                <button class="btn drawer-toggle w-100 d-flex justify-content-between align-items-center"
+                    data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
+                    <span><i class="fas fa-bars me-2"></i>Menu</span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+
+            <!-- Mobile Offcanvas Sidebar -->
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" data-bs-scroll="true">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title">Menu Navigasi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+                </div>
+                <div class="offcanvas-body">
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="<?= APP_URL ?>/public/dashboard.php">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <?php if ($_SESSION['role'] === 'mahasiswa_mbkm' || $_SESSION['role'] === 'siswa_pkl'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
+                                <i class="fas fa-calendar-check me-2"></i>Absensi Harian
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
+                                <i class="fas fa-history me-2"></i>Riwayat Kehadiran
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php">
+                                <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
+                                <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
+                            </a>
+                        <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                                <i class="fas fa-users me-2"></i>Data Peserta
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                                <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php">
+                                <i class="fas fa-clipboard-check me-2"></i>Review Laporan
+                            </a>
+                        <?php elseif ($_SESSION['role'] === 'admin'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php">
+                                <i class="fas fa-users-cog me-2"></i>Kelola User
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                                <i class="fas fa-user-graduate me-2"></i>Kelola Peserta
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php">
+                                <i class="fas fa-building me-2"></i>Kelola Divisi
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/admin_reports.php">
+                                <i class="fas fa-chart-bar me-2"></i>Laporan Sistem
+                            </a>
+                        <?php endif; ?>
+                        <hr class="my-3">
+                        <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
             </div>
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
                 <div class="p-4">
-                    <!-- Tombol Drawer (Hamburger) untuk mobile -->
-                    <button class="btn drawer-toggle floating-toggle d-md-none" aria-label="Toggle menu"
-                        style="position:fixed;bottom:18px;left:18px;z-index:1400;"
-                        data-bs-toggle="offcanvas" data-bs-target="#sidebarDrawer">
-                        <i class="fas fa-bars"></i>
-                    </button>
 
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -701,65 +760,5 @@ elseif ($role === 'admin') {
 
         </div>
     </div>
-
-    <!-- Mobile Drawer Sidebar -->
-    <div class="offcanvas offcanvas-start sidebar text-white" tabindex="-1" id="sidebarDrawer">
-        <div class="offcanvas-header">
-            <h4 class="offcanvas-title"><i class="fas fa-graduation-cap me-2"></i>Magang/PKL</h4>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
-        </div>
-
-        <div class="offcanvas-body">
-            <nav class="nav flex-column">
-                <a class="nav-link active" href="<?= APP_URL ?>/public/dashboard.php">
-                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                </a>
-                <?php if ($_SESSION['role'] === 'mahasiswa_mbkm' || $_SESSION['role'] === 'siswa_pkl'): ?>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
-                        <i class="fas fa-calendar-check me-2"></i>Absensi Harian
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
-                        <i class="fas fa-history me-2"></i>Riwayat Kehadiran
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php">
-                        <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
-                        <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
-                    </a>
-                <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
-                        <i class="fas fa-users me-2"></i>Data Peserta
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
-                        <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php">
-                        <i class="fas fa-clipboard-check me-2"></i>Review Laporan
-                    </a>
-                <?php elseif ($_SESSION['role'] === 'admin'): ?>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php">
-                        <i class="fas fa-users-cog me-2"></i>Kelola User
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
-                        <i class="fas fa-user-graduate me-2"></i>Kelola Peserta
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php">
-                        <i class="fas fa-building me-2"></i>Kelola Divisi
-                    </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/admin_reports.php">
-                        <i class="fas fa-chart-bar me-2"></i>Laporan Sistem
-                    </a>
-                <?php endif; ?>
-                <hr class="my-3">
-                <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
-                    <i class="fas fa-sign-out-alt me-2"></i>Logout
-                </a>
-            </nav>
-        </div>
-    </div>
-
-    <!-- Drawer Backdrop -->
-    <div class="drawer-backdrop"></div>
 
 <?php include BASE_PATH . 'app/Core/_includes/footer.php'; ?>

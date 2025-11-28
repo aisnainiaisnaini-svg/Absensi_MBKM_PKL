@@ -791,46 +791,18 @@ h2::after {
     gap: 2px;
 }
 
-/* Drawer Backdrop */
-.drawer-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1040; /* z-index untuk backdrop offcanvas */
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.15s linear;
-}
-
-.drawer-backdrop.show {
-    opacity: 1;
-    visibility: visible;
-}
-
-/* Floating toggle button */
-.floating-toggle {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1400;
+/* Mobile menu button */
+.drawer-toggle {
     background: var(--primary-gradient);
     color: white;
     border: none;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-weight: 500;
     transition: var(--transition-medium);
 }
 
-.floating-toggle:hover {
+.drawer-toggle:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
 }

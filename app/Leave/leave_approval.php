@@ -13,6 +13,17 @@ $admin_id = $_SESSION['user_id'];
 $message = '';
 $message_type = '';
 
+// Pagination configuration
+$limit = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, $page); // Ensure page is at least 1
+$offset = ($page - 1) * $limit;
+$offset = max(0, $offset); // Ensure offset is at least 0
+
+// Filter configuration
+$filter_status = $_GET['status'] ?? '';
+$search = $_GET['search'] ?? '';
+
 // ==============================
 // PROSES SETUJUI IZIN
 // ==============================
@@ -23,7 +34,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'approve_leave') {
     if ($leave_id) {
         executeQuery(
             "
-            UPDATE leave_requests 
+            UPDATE leave_requests
             SET status      = 'approved',
                 approved_by = ?,
                 approved_at = GETDATE(),
@@ -48,7 +59,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'reject_leave') {
     if ($leave_id) {
         executeQuery(
             "
-            UPDATE leave_requests 
+            UPDATE leave_requests
             SET status      = 'rejected',
                 approved_by = ?,
                 approved_at = GETDATE(),
@@ -64,99 +75,86 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'reject_leave') {
 }
 
 // ==============================
-// AMBIL SEMUA PENGAJUAN IZIN
-// (Sekarang admin lihat semuanya, tidak per supervisor lagi)
+// AMBIL PENGAJUAN IZIN DENGAN PAGINATION DAN FILTER
 // ==============================
+// Query untuk filtering
+$bind_values = [];
+$where_clause = "1=1"; // Default condition
+
+if (!empty($search)) {
+    $where_clause .= " AND (u.full_name LIKE ? OR d.name LIKE ? OR lr.reason LIKE ?)";
+    $bind_values = array_merge($bind_values, ["%$search%", "%$search%", "%$search%"]);
+}
+
+if (!empty($filter_status)) {
+    $where_clause .= " AND lr.status = ?";
+    $bind_values = array_merge($bind_values, [$filter_status]);
+}
+
+// Gunakan nilai offset dan limit secara langsung di query karena SQL Server tidak menerima parameter binding untuk OFFSET/FETCH
 $leave_requests = fetchAll(
     "
-    SELECT 
-        lr.*,
+    SELECT
+        lr.id,
+        lr.participant_id,
+        lr.leave_type,
+        lr.start_date,
+        lr.end_date,
+        lr.reason,
+        lr.file_path,
+        lr.status,
+        lr.approved_by,
+        lr.approved_at,
+        lr.notes,
+        lr.created_at,
         u.full_name AS participant_name,
-        d.name      AS division_name
+        d.name AS division_name
     FROM leave_requests lr
-    JOIN participants p ON lr.participant_id = p.id
-    JOIN users u       ON p.user_id = u.id
-    JOIN divisions d   ON p.division_id = d.id
+    INNER JOIN participants p ON lr.participant_id = p.id
+    INNER JOIN users u ON p.user_id = u.id
+    INNER JOIN divisions d ON p.division_id = d.id
+    WHERE $where_clause
     ORDER BY lr.created_at DESC
-    "
+    OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY
+    ",
+    $bind_values
 );
 
 // ==============================
-// HITUNG STATISTIK
+// MENGHITUNG TOTAL DATA UNTUK PAGINATION
 // ==============================
-$pending_count  = count(array_filter($leave_requests, fn($lr) => $lr['status'] === 'pending'));
-$approved_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] === 'approved'));
-$rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] === 'rejected'));
+$total_query = "
+    SELECT COUNT(*) as total
+    FROM leave_requests lr
+    INNER JOIN participants p ON lr.participant_id = p.id
+    INNER JOIN users u ON p.user_id = u.id
+    INNER JOIN divisions d ON p.division_id = d.id
+    WHERE $where_clause
+";
+$total_count = fetchOne($total_query, $bind_values)['total'];
+$total_pages = ceil($total_count / $limit);
+
+// ==============================
+// HITUNG STATISTIK (tanpa filter agar menampilkan total keseluruhan)
+// ==============================
+$pending_count_sql = "SELECT COUNT(*) AS count FROM leave_requests lr JOIN participants p ON lr.participant_id = p.id WHERE lr.status = ?";
+$approved_count_sql = "SELECT COUNT(*) AS count FROM leave_requests lr JOIN participants p ON lr.participant_id = p.id WHERE lr.status = ?";
+$rejected_count_sql = "SELECT COUNT(*) AS count FROM leave_requests lr JOIN participants p ON lr.participant_id = p.id WHERE lr.status = ?";
+
+$pending_count  = fetchOne($pending_count_sql, ['pending'])['count'];
+$approved_count = fetchOne($approved_count_sql, ['approved'])['count'];
+$rejected_count = fetchOne($rejected_count_sql, ['rejected'])['count'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Persetujuan Izin - Pembimbing</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Persetujuan Izin - Sistem Absensi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-<link rel="stylesheet" href="../../assets/css/drawer.css">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/custom.css">
     <style>
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 12px 20px;
-            border-radius: 10px;
-            margin: 5px 10px;
-            transition: all 0.3s;
-        }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active {
-            color: white;
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(5px);
-        }
-        .main-content {
-            background: #f8f9fa;
-            min-height: 100vh;
-        }
-        .stats-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            text-align: center;
-        }
-        .stats-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: white;
-            margin: 0 auto 15px;
-        }
-        .bg-primary-gradient {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .bg-warning-gradient {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .bg-success-gradient {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
-        }
-        .bg-danger-gradient {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        }
-        .leave-card {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            margin-bottom: 20px;
-        }
         .status-badge {
             font-size: 0.9rem;
             padding: 8px 15px;
@@ -171,56 +169,170 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
         .btn-action:hover {
             transform: translateY(-2px);
         }
+        .leave-item {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+        .filter-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 25px;
+        }
+        .pagination-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <!-- HTML ASAL TETAP, TIDAK DIUBAH -->
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar p-0">
+            <aside class="col-md-3 col-lg-2 sidebar p-0 d-none d-md-block">
                 <div class="p-3">
                     <h4 class="text-center mb-4">
                         <i class="fas fa-graduation-cap me-2"></i>
                         Magang/PKL
                     </h4>
                 </div>
-                
+
                 <nav class="nav flex-column">
-                    <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php"><i class="fas fa-users-cog me-2"></i>Kelola User</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php"><i class="fas fa-user-graduate me-2"></i>Kelola Peserta</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants_mbkm.php"><i class="fas fa-user me-2"></i>Kelola MBKM</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants_pkl.php"><i class="fas fa-user me-2"></i>Kelola PKL</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Guidance/admin_bimbingan_pkl.php"><i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan PKL</a>
-                    <a class="nav-link active" href="leave_approval.php"><i class="fas fa-check-circle me-2"></i>Persetujuan Izin</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php"><i class="fas fa-clipboard-check me-2"></i>Review Laporan</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php"><i class="fas fa-building me-2"></i>Kelola Divisi</a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/reports.php"><i class="fas fa-chart-bar me-2"></i>Laporan Sistem</a>
+                    <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                    <?php if ($_SESSION['role'] === 'mahasiswa_mbkm' || $_SESSION['role'] === 'siswa_pkl'): ?>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
+                            <i class="fas fa-calendar-check me-2"></i>Absensi Harian
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
+                            <i class="fas fa-history me-2"></i>Riwayat Kehadiran
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php">
+                            <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
+                            <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
+                        </a>
+                    <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                            <i class="fas fa-users me-2"></i>Data Peserta
+                        </a>
+                        <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                            <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php">
+                            <i class="fas fa-clipboard-check me-2"></i>Review Laporan
+                        </a>
+                    <?php elseif ($_SESSION['role'] === 'admin'): ?>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php">
+                            <i class="fas fa-users-cog me-2"></i>Kelola User
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                            <i class="fas fa-user-graduate me-2"></i>Kelola Peserta
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php">
+                            <i class="fas fa-building me-2"></i>Kelola Divisi
+                        </a>
+                        <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                            <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                        </a>
+                        <a class="nav-link" href="<?= APP_URL ?>/app/Reports/admin_reports.php">
+                            <i class="fas fa-chart-bar me-2"></i>Laporan Sistem
+                        </a>
+                    <?php endif; ?>
                     <hr class="my-3">
                     <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout
                     </a>
                 </nav>
+            </aside>
+
+            <!-- Mobile Menu Button -->
+            <div class="d-md-none p-3">
+                <button class="btn drawer-toggle w-100 d-flex justify-content-between align-items-center"
+                    data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
+                    <span><i class="fas fa-bars me-2"></i>Menu</span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
             </div>
 
-            <!-- Drawer backdrop for small screens -->
-            <div class="drawer-backdrop" aria-hidden="true"></div>
-
-            <!-- Drawer toggle (hamburger) visible on small screens -->
-            <button class="btn btn-outline-secondary drawer-toggle position-fixed top-0 start-0 m-3" 
-                    style="z-index:1200; border-radius:10px;" aria-label="Toggle sidebar">
-                <i class="fas fa-bars"></i>
-            </button>
+            <!-- Mobile Offcanvas Sidebar -->
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" data-bs-scroll="true">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title">Menu Navigasi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+                </div>
+                <div class="offcanvas-body">
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                        <?php if ($_SESSION['role'] === 'mahasiswa_mbkm' || $_SESSION['role'] === 'siswa_pkl'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
+                                <i class="fas fa-calendar-check me-2"></i>Absensi Harian
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
+                                <i class="fas fa-history me-2"></i>Riwayat Kehadiran
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php">
+                                <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
+                                <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
+                            </a>
+                        <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                                <i class="fas fa-users me-2"></i>Data Peserta
+                            </a>
+                            <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                                <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php">
+                                <i class="fas fa-clipboard-check me-2"></i>Review Laporan
+                            </a>
+                        <?php elseif ($_SESSION['role'] === 'admin'): ?>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php">
+                                <i class="fas fa-users-cog me-2"></i>Kelola User
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                                <i class="fas fa-user-graduate me-2"></i>Kelola Peserta
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php">
+                                <i class="fas fa-building me-2"></i>Kelola Divisi
+                            </a>
+                            <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                                <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                            </a>
+                            <a class="nav-link" href="<?= APP_URL ?>/app/Reports/admin_reports.php">
+                                <i class="fas fa-chart-bar me-2"></i>Laporan Sistem
+                            </a>
+                        <?php endif; ?>
+                        <hr class="my-3">
+                        <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
                 <div class="p-4">
                     <!-- Header -->
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h2><i class="fas fa-check-circle me-2"></i>Persetujuan Izin</h2>
-                            <p class="text-muted mb-0">Kelola pengajuan izin peserta</p>
+                    <div class="page-header mb-4">
+                        <div class="container">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h1 class="mb-2"><i class="fas fa-check-circle me-3"></i>Persetujuan Izin</h1>
+                                    <p class="mb-0">Kelola pengajuan izin peserta</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -231,168 +343,312 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     <?php endif; ?>
-                    
+
+                    <!-- Filter Card -->
+                    <div class="filter-card">
+                        <h5 class="mb-3"><i class="fas fa-filter me-2"></i>Filter Data</h5>
+                        <form method="GET" class="row g-3">
+                            <div class="col-md-4">
+                                <label for="statusFilter" class="form-label">Status Izin</label>
+                                <select name="status" id="statusFilter" class="form-select">
+                                    <option value="">Semua Status</option>
+                                    <option value="pending" <?= $filter_status === 'pending' ? 'selected' : '' ?>>Pending</option>
+                                    <option value="approved" <?= $filter_status === 'approved' ? 'selected' : '' ?>>Disetujui</option>
+                                    <option value="rejected" <?= $filter_status === 'rejected' ? 'selected' : '' ?>>Ditolak</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-5">
+                                <label for="searchInput" class="form-label">Pencarian</label>
+                                <input type="text" name="search" id="searchInput" class="form-control"
+                                       placeholder="Cari nama peserta, divisi, atau alasan..."
+                                       value="<?= htmlspecialchars($search) ?>">
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Cari
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
                     <!-- Statistics -->
                     <div class="row mb-4">
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon bg-warning-gradient">
-                                    <i class="fas fa-clock"></i>
+                        <div class="col-md-6 col-lg-3 mb-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <div class="summary-icon bg-warning mx-auto mb-3">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <h3 class="card-title"><?= $pending_count ?></h3>
+                                    <p class="card-text text-muted">Pending</p>
                                 </div>
-                                <h3 class="mb-1"><?= $pending_count ?></h3>
-                                <p class="text-muted mb-0">Pending</p>
                             </div>
                         </div>
-                        
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon bg-success-gradient">
-                                    <i class="fas fa-check-circle"></i>
+
+                        <div class="col-md-6 col-lg-3 mb-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <div class="summary-icon bg-success mx-auto mb-3">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <h3 class="card-title"><?= $approved_count ?></h3>
+                                    <p class="card-text text-muted">Disetujui</p>
                                 </div>
-                                <h3 class="mb-1"><?= $approved_count ?></h3>
-                                <p class="text-muted mb-0">Disetujui</p>
                             </div>
                         </div>
-                        
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon bg-danger-gradient">
-                                    <i class="fas fa-times-circle"></i>
+
+                        <div class="col-md-6 col-lg-3 mb-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <div class="summary-icon bg-danger mx-auto mb-3">
+                                        <i class="fas fa-times-circle"></i>
+                                    </div>
+                                    <h3 class="card-title"><?= $rejected_count ?></h3>
+                                    <p class="card-text text-muted">Ditolak</p>
                                 </div>
-                                <h3 class="mb-1"><?= $rejected_count ?></h3>
-                                <p class="text-muted mb-0">Ditolak</p>
                             </div>
                         </div>
-                        
-                        <div class="col-md-3 mb-3">
-                            <div class="stats-card">
-                                <div class="stats-icon bg-primary-gradient">
-                                    <i class="fas fa-list"></i>
+
+                        <div class="col-md-6 col-lg-3 mb-4">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <div class="summary-icon bg-primary mx-auto mb-3">
+                                        <i class="fas fa-list"></i>
+                                    </div>
+                                    <h3 class="card-title"><?= $total_count ?></h3>
+                                    <p class="card-text text-muted">Total</p>
                                 </div>
-                                <h3 class="mb-1"><?= count($leave_requests) ?></h3>
-                                <p class="text-muted mb-0">Total</p>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Leave Requests -->
-                    <div class="row">
-                        <?php foreach ($leave_requests as $leave): ?>
-                            <div class="col-md-6 mb-4">
-                                <div class="leave-card">
-                                    <div class="d-flex justify-content-between align-items-start mb-3">
-                                        <div>
-                                            <h5 class="mb-1"><?= htmlspecialchars($leave['participant_name']) ?></h5>
-                                            <p class="text-muted mb-0"><?= htmlspecialchars($leave['division_name']) ?></p>
-                                        </div>
-                                        <div>
-                                            <?php
-                                            $status_class = '';
-                                            $status_icon  = '';
-                                            switch ($leave['status']) {
-                                                case 'pending':
-                                                    $status_class = 'warning';
-                                                    $status_icon  = 'clock';
-                                                    break;
-                                                case 'approved':
-                                                    $status_class = 'success';
-                                                    $status_icon  = 'check-circle';
-                                                    break;
-                                                case 'rejected':
-                                                    $status_class = 'danger';
-                                                    $status_icon  = 'times-circle';
-                                                    break;
-                                            }
-                                            ?>
-                                            <span class="badge bg-<?= $status_class ?> status-badge">
-                                                <i class="fas fa-<?= $status_icon ?> me-1"></i>
-                                                <?= ucfirst($leave['status']) ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <div class="row">
-                                            <div class="col-6">
-                                                <h6>Jenis Izin</h6>
-                                                <span class="badge bg-info">
-                                                    <?php
-                                                    $type_labels = [
-                                                        'sakit'              => 'Sakit',
-                                                        'izin'               => 'Izin Pribadi',
-                                                        'keperluan_mendesak' => 'Izin Akademik',
-                                                        'izin_akademik'      => 'Izin Akademik'
-                                                    ];
-                                                    echo $type_labels[$leave['leave_type']] ?? $leave['leave_type'];
-                                                    ?>
-                                                </span>
-                                            </div>
-                                            <div class="col-6">
-                                                <h6>Periode</h6>
-                                                <small class="text-muted">
-                                                    <?= date('d M Y H:i', strtotime($leave['start_date'])) ?>
-                                                    <?php if ($leave['start_date'] !== $leave['end_date']): ?>
-                                                        - <?= date('d M Y H:i', strtotime($leave['end_date'])) ?>
-                                                    <?php endif; ?>
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <h6>Alasan</h6>
-                                        <p class="text-muted"><?= htmlspecialchars($leave['reason']) ?></p>
-                                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>
+                                Daftar Pengajuan Izin
+                                <span class="badge bg-primary ms-2"><?= $total_count ?></span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <?php if (!empty($leave_requests)): ?>
+                                    <?php foreach ($leave_requests as $leave): ?>
+                                        <div class="col-md-6 mb-4">
+                                            <div class="leave-item">
+                                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                                    <div>
+                                                        <h5 class="mb-1"><?= htmlspecialchars($leave['participant_name']) ?></h5>
+                                                        <p class="text-muted mb-0"><?= htmlspecialchars($leave['division_name']) ?></p>
+                                                    </div>
+                                                    <div>
+                                                        <?php
+                                                        $status_class = '';
+                                                        $status_icon  = '';
+                                                        switch ($leave['status']) {
+                                                            case 'pending':
+                                                                $status_class = 'warning';
+                                                                $status_icon  = 'clock';
+                                                                break;
+                                                            case 'approved':
+                                                                $status_class = 'success';
+                                                                $status_icon  = 'check-circle';
+                                                                break;
+                                                            case 'rejected':
+                                                                $status_class = 'danger';
+                                                                $status_icon  = 'times-circle';
+                                                                break;
+                                                        }
+                                                        ?>
+                                                        <span class="badge bg-<?= $status_class ?> status-badge">
+                                                            <i class="fas fa-<?= $status_icon ?> me-1"></i>
+                                                            <?= ucfirst($leave['status']) ?>
+                                                        </span>
+                                                    </div>
+                                                </div>
 
-                                    <?php if (!empty($leave['file_path'])): ?>
-                                    <div class="mb-3">
-                                        <h6>Lampiran</h6>
-                                        <a href="<?= APP_URL ?>/<?= htmlspecialchars($leave['file_path']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-download me-1"></i> Lihat Lampiran
-                                        </a>
+                                                <div class="mb-3">
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <h6>Jenis Izin</h6>
+                                                            <span class="badge bg-info">
+                                                                <?php
+                                                                $type_labels = [
+                                                                    'sakit'              => 'Sakit',
+                                                                    'izin'               => 'Izin Pribadi',
+                                                                    'keperluan_mendesak' => 'Izin Akademik',
+                                                                    'izin_akademik'      => 'Izin Akademik'
+                                                                ];
+                                                                echo $type_labels[$leave['leave_type']] ?? $leave['leave_type'];
+                                                                ?>
+                                                            </span>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <h6>Periode</h6>
+                                                            <small class="text-muted">
+                                                                <?= date('d M Y H:i', strtotime($leave['start_date'])) ?>
+                                                                <?php if ($leave['start_date'] !== $leave['end_date']): ?>
+                                                                    - <?= date('d M Y H:i', strtotime($leave['end_date'])) ?>
+                                                                <?php endif; ?>
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <h6>Alasan</h6>
+                                                    <p class="text-muted"><?= htmlspecialchars($leave['reason']) ?></p>
+                                                </div>
+
+                                                <?php if (!empty($leave['file_path'])): ?>
+                                                <div class="mb-3">
+                                                    <h6>Lampiran</h6>
+                                                    <a href="<?= APP_URL ?>/<?= htmlspecialchars($leave['file_path']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-download me-1"></i> Lihat Lampiran
+                                                    </a>
+                                                </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($leave['status'] === 'pending'): ?>
+                                                    <div class="d-flex gap-2">
+                                                        <button class="btn btn-success btn-action flex-fill"
+                                                                onclick="approveLeave(<?= $leave['id'] ?>)">
+                                                            <i class="fas fa-check me-2"></i>Setujui
+                                                        </button>
+                                                        <button class="btn btn-danger btn-action flex-fill"
+                                                                onclick="rejectLeave(<?= $leave['id'] ?>)">
+                                                            <i class="fas fa-times me-2"></i>Tolak
+                                                        </button>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="alert alert-<?= $leave['status'] === 'approved' ? 'success' : 'danger' ?> mb-0">
+                                                        <i class="fas fa-<?= $leave['status'] === 'approved' ? 'check-circle' : 'times-circle' ?> me-2"></i>
+                                                        Izin <?= $leave['status'] === 'approved' ? 'disetujui' : 'ditolak' ?>
+                                                        pada <?= $leave['approved_at'] ? date('d M Y H:i', strtotime($leave['approved_at'])) : '-' ?>
+                                                        <?php if (!empty($leave['notes'])): ?>
+                                                            <br><small><?= htmlspecialchars($leave['notes']) ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div class="col-12">
+                                        <div class="text-center py-5">
+                                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                            <h5 class="text-muted">Belum ada pengajuan izin</h5>
+                                            <p class="text-muted">Tidak ditemukan pengajuan izin sesuai dengan filter yang dipilih</p>
+                                        </div>
                                     </div>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($leave['status'] === 'pending'): ?>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-success btn-action flex-fill" 
-                                                    onclick="approveLeave(<?= $leave['id'] ?>)">
-                                                <i class="fas fa-check me-2"></i>Setujui
-                                            </button>
-                                            <button class="btn btn-danger btn-action flex-fill" 
-                                                    onclick="rejectLeave(<?= $leave['id'] ?>)">
-                                                <i class="fas fa-times me-2"></i>Tolak
-                                            </button>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="alert alert-<?= $leave['status'] === 'approved' ? 'success' : 'danger' ?> mb-0">
-                                            <i class="fas fa-<?= $leave['status'] === 'approved' ? 'check-circle' : 'times-circle' ?> me-2"></i>
-                                            Izin <?= $leave['status'] === 'approved' ? 'disetujui' : 'ditolak' ?> 
-                                            pada <?= $leave['approved_at'] ? date('d M Y H:i', strtotime($leave['approved_at'])) : '-' ?>
-                                            <?php if (!empty($leave['notes'])): ?>
-                                                <br><small><?= htmlspecialchars($leave['notes']) ?></small>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
+                                <?php endif; ?>
                             </div>
-                        <?php endforeach; ?>
-                        
-                        <?php if (empty($leave_requests)): ?>
-                            <div class="col-12">
-                                <div class="leave-card text-center py-5">
-                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                    <h5 class="text-muted">Belum ada pengajuan izin</h5>
-                                    <p class="text-muted">Semua pengajuan izin telah diproses</p>
-                                </div>
+
+                            <!-- Pagination -->
+                            <?php if ($total_pages > 1): ?>
+                            <div class="pagination-wrapper">
+                                <nav>
+                                    <ul class="pagination">
+                                        <?php if ($page > 1): ?>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page=<?= $page - 1 ?>&status=<?= urlencode($filter_status) ?>&search=<?= urlencode($search) ?>">
+                                                    <i class="fas fa-chevron-left"></i> Sebelumnya
+                                                </a>
+                                            </li>
+                                        <?php endif; ?>
+
+                                        <?php
+                                        // Tampilkan hanya beberapa halaman di sekitar halaman saat ini
+                                        $start = max(1, $page - 2);
+                                        $end = min($total_pages, $page + 2);
+
+                                        for ($i = $start; $i <= $end; $i++):
+                                        ?>
+                                            <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                                                <a class="page-link" href="?page=<?= $i ?>&status=<?= urlencode($filter_status) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                                            </li>
+                                        <?php endfor; ?>
+
+                                        <?php if ($page < $total_pages): ?>
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page=<?= $page + 1 ?>&status=<?= urlencode($filter_status) ?>&search=<?= urlencode($search) ?>">
+                                                    Berikutnya <i class="fas fa-chevron-right"></i>
+                                                </a>
+                                            </li>
+                                        <?php endif; ?>
+                                    </ul>
+                                </nav>
                             </div>
-                        <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
+    <!-- Mobile Offcanvas Sidebar -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" data-bs-scroll="true">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Menu Navigasi</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                </a>
+                <?php if ($_SESSION['role'] === 'mahasiswa_mbkm' || $_SESSION['role'] === 'siswa_pkl'): ?>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
+                        <i class="fas fa-calendar-check me-2"></i>Absensi Harian
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
+                        <i class="fas fa-history me-2"></i>Riwayat Kehadiran
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php">
+                        <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
+                        <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
+                    </a>
+                <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                        <i class="fas fa-users me-2"></i>Data Peserta
+                    </a>
+                    <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                        <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/reports_review.php">
+                        <i class="fas fa-clipboard-check me-2"></i>Review Laporan
+                    </a>
+                <?php elseif ($_SESSION['role'] === 'admin'): ?>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/users.php">
+                        <i class="fas fa-users-cog me-2"></i>Kelola User
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Participants/admin_participants.php">
+                        <i class="fas fa-user-graduate me-2"></i>Kelola Peserta
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Admin/divisions.php">
+                        <i class="fas fa-building me-2"></i>Kelola Divisi
+                    </a>
+                    <a class="nav-link active" href="<?= APP_URL ?>/app/Leave/leave_approval.php">
+                        <i class="fas fa-check-circle me-2"></i>Persetujuan Izin
+                    </a>
+                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/admin_reports.php">
+                        <i class="fas fa-chart-bar me-2"></i>Laporan Sistem
+                    </a>
+                <?php endif; ?>
+                <hr class="my-3">
+                <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
+                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                </a>
+            </nav>
+        </div>
+    </div>
+
     <!-- Approve Modal -->
     <div class="modal fade" id="approveModal" tabindex="-1">
         <div class="modal-dialog">
@@ -407,10 +663,10 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                     <div class="modal-body">
                         <input type="hidden" name="action" value="approve_leave">
                         <input type="hidden" name="leave_id" id="approve_leave_id">
-                        
+
                         <div class="mb-3">
                             <label for="approve_notes" class="form-label">Catatan (Opsional)</label>
-                            <textarea class="form-control" id="approve_notes" name="notes" rows="3" 
+                            <textarea class="form-control" id="approve_notes" name="notes" rows="3"
                                       placeholder="Berikan catatan untuk peserta..."></textarea>
                         </div>
                     </div>
@@ -422,7 +678,7 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
             </div>
         </div>
     </div>
-    
+
     <!-- Reject Modal -->
     <div class="modal fade" id="rejectModal" tabindex="-1">
         <div class="modal-dialog">
@@ -437,10 +693,10 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
                     <div class="modal-body">
                         <input type="hidden" name="action" value="reject_leave">
                         <input type="hidden" name="leave_id" id="reject_leave_id">
-                        
+
                         <div class="mb-3">
                             <label for="reject_notes" class="form-label">Alasan Penolakan</label>
-                            <textarea class="form-control" id="reject_notes" name="notes" rows="3" 
+                            <textarea class="form-control" id="reject_notes" name="notes" rows="3"
                                       placeholder="Berikan alasan penolakan..." required></textarea>
                         </div>
                     </div>
@@ -452,15 +708,15 @@ $rejected_count = count(array_filter($leave_requests, fn($lr) => $lr['status'] =
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../../assets/js/drawer.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="<?= APP_URL ?>/assets/js/drawer.js"></script>
     <script>
         function approveLeave(leaveId) {
             document.getElementById('approve_leave_id').value = leaveId;
             new bootstrap.Modal(document.getElementById('approveModal')).show();
         }
-        
+
         function rejectLeave(leaveId) {
             document.getElementById('reject_leave_id').value = leaveId;
             new bootstrap.Modal(document.getElementById('rejectModal')).show();
