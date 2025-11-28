@@ -12,6 +12,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], $allowed_roles)
     die("<h3 style='color:red;text-align:center;margin-top:50px;'>Akses hanya untuk peserta MBKM / PKL.</h3>");
 }
 
+// Block access for siswa_pkl: the page should not be available to PKL students
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'siswa_pkl') {
+    header('Location: dashboard.php');
+    exit();
+}
+
 $user_id = $_SESSION['user_id'];
 $message = '';
 $message_type = '';
@@ -253,7 +259,7 @@ $reports = fetchAll("
                                                 <i class="fas fa-heading me-2"></i>Judul Laporan
                                             </label>
                                             <input type="text" class="form-control" id="title" name="title" 
-                                                   placeholder="Contoh: Laporan Harian - Pengembangan Website" required>
+                                                   placeholder="Contoh: Week 1_Nama" required>
                                         </div>
                                         
                                         <div class="col-md-6 mb-3">
@@ -263,14 +269,6 @@ $reports = fetchAll("
                                             <input type="date" class="form-control" id="report_date" name="report_date" 
                                                    value="<?= date('Y-m-d') ?>" required>
                                         </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label for="description" class="form-label">
-                                            <i class="fas fa-align-left me-2"></i>Deskripsi Kegiatan
-                                        </label>
-                                        <textarea class="form-control" id="description" name="description" rows="6" 
-                                                  placeholder="Jelaskan kegiatan yang dilakukan hari ini secara detail..." required></textarea>
                                     </div>
                                     
                                     <div class="mb-4">

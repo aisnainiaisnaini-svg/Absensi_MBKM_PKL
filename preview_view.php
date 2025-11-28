@@ -72,7 +72,9 @@
                         <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
                         <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
                         <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
-                        <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                        <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'siswa_pkl'): ?>
+                            <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                        <?php endif; ?>
                     
                 </nav>
             </div>

@@ -160,7 +160,9 @@ $guidances = fetchAll("
                 <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
                 <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
                 <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
-                <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'siswa_pkl'): ?>
+                    <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                <?php endif; ?>
 
                 <!-- TAMPILKAN HANYA UNTUK siswa_pkl -->
                 <?php if ($_SESSION['role'] === 'siswa_pkl'): ?>
@@ -213,18 +215,12 @@ $guidances = fetchAll("
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Hari yang Diinginkan</label>
+                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Jadwal Bimbingan</label>
                             <select class="form-control" name="preferred_day" required>
                                 <option value="">Pilih Hari</option>
                                 <option value="Selasa">Selasa</option>
                                 <option value="Kamis">Kamis</option>
                             </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-align-left me-2"></i>Detail Bimbingan</label>
-                            <textarea class="form-control" rows="4" name="question_text" required
-                                      placeholder="Tuliskan detail pertanyaan atau konsultasi Anda..."></textarea>
                         </div>
 
                         <button class="btn-submit">

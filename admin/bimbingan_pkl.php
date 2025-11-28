@@ -243,13 +243,13 @@ $guidances = fetchAll(
                                     <?php $no = 1; foreach ($guidances as $g): ?>
                                     <?php
                                     $badge_class = 'secondary';
-                                    if ($g['status'] === 'pending') {
+                                    if ($g['status'] === 'Setujui') {
                                         $badge_class = 'warning';
                                     }
-                                    if ($g['status'] === 'diproses') {
+                                    if ($g['status'] === 'Dibatalkan') {
                                         $badge_class = 'info';
                                     }
-                                    if ($g['status'] === 'selesai') {
+                                    if ($g['status'] === 'Ditolak') {
                                         $badge_class = 'success';
                                     }
                                     ?>
@@ -329,15 +329,15 @@ $guidances = fetchAll(
                                                             <div class="col-md-4">
                                                                 <label class="form-label">Status Bimbingan</label>
                                                                 <select name="status" class="form-select" required>
-                                                                    <option value="pending"
-                                                                        <?= $g['status'] === 'pending' ? 'selected' : '' ?>>
-                                                                        Pending</option>
-                                                                    <option value="diproses"
-                                                                        <?= $g['status'] === 'diproses' ? 'selected' : '' ?>>
-                                                                        Diproses</option>
-                                                                    <option value="selesai"
-                                                                        <?= $g['status'] === 'selesai' ? 'selected' : '' ?>>
-                                                                        Selesai</option>
+                                                                    <option value="Setujui"
+                                                                        <?= $g['status'] === 'Setujui' ? 'selected' : '' ?>>
+                                                                        Setujui</option>
+                                                                    <option value="Dibatalkan"
+                                                                        <?= $g['status'] === 'Dibatalkan' ? 'selected' : '' ?>>
+                                                                        Dibatakan</option>
+                                                                    <option value="Ditolak"
+                                                                        <?= $g['status'] === 'sDitolak' ? 'selected' : '' ?>>
+                                                                        Ditolak</option>
                                                                 </select>
                                                             </div>
                                                             <div class="col-md-8">

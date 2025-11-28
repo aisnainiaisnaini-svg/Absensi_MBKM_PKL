@@ -299,7 +299,9 @@ foreach ($recent_attendance as $attendance) {
                         <a class="nav-link" href="leave_request.php">
                             <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
                         </a>
-                        <a class="nav-link" href="activity_report.php">
+                        <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'siswa_pkl'): ?>
+                            <a class="nav-link" href="activity_report.php">
+                        <?php endif; ?>
                             <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
                         </a>
                     <?php elseif ($_SESSION['role'] === 'pembimbing'): ?>

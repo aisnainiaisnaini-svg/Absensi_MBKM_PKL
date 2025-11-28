@@ -317,8 +317,47 @@ elseif ($role === 'admin') {
     <div class="container-fluid">
         <div class="row">
 
+        <!-- PERSISTENT SIDEBAR (md+) -->
+        <div class="col-md-3 col-lg-2 sidebar p-0 d-none d-md-block">
+            <div class="p-3">
+                <h4 class="text-center mb-4">
+                    <i class="fas fa-graduation-cap me-2"></i>
+                    Magang/PKL
+                </h4>
+            </div>
+            <nav class="nav flex-column">
+                <a class="nav-link active" href="dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+
+                <?php if ($role === 'mahasiswa_mbkm'): ?>
+                    <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
+                    <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
+                    <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
+                    <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                <?php elseif ($role === 'siswa_pkl'): ?>
+                    <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
+                    <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
+                    <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
+                    <?php /* Activity Report removed for siswa_pkl per request */ ?>
+                    <a class="nav-link" href="bimbingan_pkl.php"><i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan</a>
+                <?php elseif ($role === 'admin'): ?>
+                    <a class="nav-link" href="admin/users.php"><i class="fas fa-users-cog me-2"></i>Kelola User</a>
+                    <a class="nav-link" href="admin/participants.php"><i class="fas fa-user-graduate me-2"></i>Kelola Peserta</a>
+                    <a class="nav-link" href="admin/participants_mbkm.php"><i class="fas fa-user me-2"></i>Kelola MBKM</a>
+                    <a class="nav-link" href="admin/participants_pkl.php"><i class="fas fa-user me-2"></i>Kelola PKL</a>
+                    <a class="nav-link" href="admin/bimbingan_pkl.php"><i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan PKL</a>
+                    <a class="nav-link" href="leave_approval.php"><i class="fas fa-check-circle me-2"></i>Persetujuan Izin</a>
+                    <a class="nav-link" href="reports_review.php"><i class="fas fa-clipboard-check me-2"></i>Review Laporan</a>
+                    <a class="nav-link" href="admin/divisions.php"><i class="fas fa-building me-2"></i>Kelola Divisi</a>
+                    <a class="nav-link" href="admin/reports.php"><i class="fas fa-chart-bar me-2"></i>Laporan Sistem</a>
+                <?php endif; ?>
+
+                <hr class="my-3">
+                <a class="nav-link" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+            </nav>
+        </div>
+
         <!-- DRAWER SIDEBAR (OFFCANVAS) -->
-<div class="offcanvas offcanvas-start sidebar text-white" tabindex="-1" id="sidebarDrawer">
+        <div class="offcanvas offcanvas-start sidebar text-white" tabindex="-1" id="sidebarDrawer">
     <div class="offcanvas-header">
         <h4 class="offcanvas-title"><i class="fas fa-graduation-cap me-2"></i>Magang/PKL</h4>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
@@ -335,7 +374,9 @@ elseif ($role === 'admin') {
                 <a class="nav-link" href="attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
                 <a class="nav-link" href="attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
                 <a class="nav-link" href="leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
-                <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'siswa_pkl'): ?>
+                    <a class="nav-link" href="activity_report.php"><i class="fas fa-file-alt me-2"></i>Laporan Kegiatan</a>
+                <?php endif; ?>
 
             <!-- MENU SISWA PKL -->
             <?php elseif ($role === 'siswa_pkl'): ?>
