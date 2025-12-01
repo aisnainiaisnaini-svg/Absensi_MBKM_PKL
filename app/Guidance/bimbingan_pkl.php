@@ -60,12 +60,11 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'withdraw_guidance
 
         // Cek apakah status saat ini adalah 'pending'
         if ($current_guidance && $current_guidance['status'] === 'pending') {
-            // Update status menjadi 'ditarik'
-            executeQuery("
-                UPDATE Guidance_PKL
-                SET Status = 'ditarik'
-                WHERE Id = ? AND Participant_Id = ?
-            ", [$guidance_id, $participant_id]);
+            // Update status menjadi 'withdrawn'
+            executeQuery(
+                "UPDATE Guidance_PKL SET Status = 'withdrawn' WHERE Id = ? AND Participant_Id = ?",
+                [$guidance_id, $participant_id]
+            );
 
             $message = "Permintaan bimbingan berhasil ditarik.";
             $message_type = "success";
@@ -82,16 +81,20 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'withdraw_guidance
 // Ambil semua bimbingan milik siswa ini
 $guidances = fetchAll("
     SELECT
-        Id,
-        Title,
-        Preferred_Day,
-        Admin_Response,
-        Status,
-        Created_At,
-        Responded_At
-    FROM Guidance_PKL
-    WHERE Participant_Id = ?
-    ORDER BY Created_At DESC
+        g.Id,
+        g.Title,
+        g.Preferred_Day,
+        g.Admin_Response,
+        g.Status,
+        g.Schedule_Date,
+        g.Created_At,
+        g.Responded_At,
+        p.Company_Supervisor,
+        p.School_Supervisor
+    FROM Guidance_PKL g
+    JOIN participants p ON g.Participant_Id = p.id
+    WHERE g.Participant_Id = ?
+    ORDER BY g.Created_At DESC
 ", [$participant_id]);
 ?>
 <!DOCTYPE html>
