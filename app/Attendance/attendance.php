@@ -184,6 +184,36 @@ $riwayat_bulan_ini = fetchAll("
     ORDER BY a.[date] ASC
 ", [$participant['id']]);
 
+// Hitung durasi kerja hari ini jika ada check-in dan check-out
+$work_duration = '-';
+if (!empty($today_attendance['check_in']) && !empty($today_attendance['check_out'])) {
+    try {
+        $in  = new DateTime($today_attendance['check_in']);
+        $out = new DateTime($today_attendance['check_out']);
+        $diff = $in->diff($out);
+        $hours = (int)$diff->h + ($diff->days * 24);
+        $minutes = $diff->i;
+        $work_duration = ($hours > 0 ? $hours . 'j ' : '') . ($minutes > 0 ? $minutes . 'm' : '0m');
+    } catch (Exception $e) {
+        $work_duration = '-';
+    }
+}
+
+// Jika sudah check-in tapi belum pulang, hitung durasi berjalan
+$ongoing_duration = '-';
+if (!empty($today_attendance['check_in']) && empty($today_attendance['check_out'])) {
+    try {
+        $in = new DateTime($today_attendance['check_in']);
+        $now = new DateTime();
+        $diff = $in->diff($now);
+        $hours = (int)$diff->h + ($diff->days * 24);
+        $minutes = $diff->i;
+        $ongoing_duration = ($hours > 0 ? $hours . 'j ' : '') . ($minutes > 0 ? $minutes . 'm' : '0m');
+    } catch (Exception $e) {
+        $ongoing_duration = '-';
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -197,6 +227,23 @@ $riwayat_bulan_ini = fetchAll("
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="../../assets/css/custom.css">
     <link rel="stylesheet" href="../../assets/css/drawer.css">
+    <style>
+        /* Attendance summary styles */
+        .summary-card { border-radius: 12px; padding:18px; background:#fff; box-shadow:0 8px 28px rgba(15,23,42,0.06); border:1px solid rgba(15,23,42,0.04); }
+        .summary-blocks { display:flex; gap:14px; }
+        .summary-block { flex:1; background:linear-gradient(180deg,#ffffff,#fbfdff); border-radius:12px; padding:14px; display:flex; gap:12px; align-items:center; box-shadow:0 6px 18px rgba(15,23,42,0.04); transition:transform .12s ease, box-shadow .12s ease; }
+        .summary-block:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(15,23,42,0.08); }
+        .summary-icon { width:56px; height:56px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff; box-shadow:0 6px 14px rgba(11,20,40,0.06); }
+        .icon-blue { background: linear-gradient(135deg,#667eea,#764ba2); }
+        .icon-green { background: linear-gradient(135deg,#34d399,#10b981); }
+        .icon-orange { background: linear-gradient(135deg,#f59e0b,#f97316); }
+        .icon-gray { background: linear-gradient(135deg,#94a3b8,#64748b); }
+        .summary-label { color:#6b7280; font-size:12px; letter-spacing:0.2px; }
+        .summary-value { font-weight:700; font-size:20px; color:#0f172a; }
+        .attendance-table th, .attendance-table td { vertical-align: middle; }
+        .rekap-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+        @media (max-width:991px){ .summary-blocks{flex-direction:column} .summary-block{align-items:flex-start} }
+    </style>
 </head>
 <body>
 <div class="container-fluid">
@@ -228,7 +275,6 @@ $riwayat_bulan_ini = fetchAll("
                 <header>
                     <button class="btn drawer-toggle me-2" aria-label="Toggle menu">☰</button>
                     <h1>Absensi Peserta Magang & Pkl</h1>
-                    <a href="<?= APP_URL ?>/public/logout.php">Logout</a>
                 </header>
 
                 <h2><?= htmlspecialchars($participant['school']) ?> - <?= htmlspecialchars($participant['major']) ?></h2>
@@ -256,49 +302,103 @@ $riwayat_bulan_ini = fetchAll("
                 </div>
 
                 <div class="section-title">📅 Ringkasan Hari Ini</div>
-                <table>
-                    <tr>
-<th>Tanggal</th>
-                        <th>Absen Masuk</th>
-                        <th>Pulang</th>
-                        <th>Status</th>
-                    </tr>
-                    <tr>
-                        <td><?= htmlspecialchars($today) ?></td>
-                        <td><?= !empty($today_attendance['check_in']) ? date('H:i:s', strtotime($today_attendance['check_in'])) : '-' ?></td>
-                        <td><?= !empty($today_attendance['check_out']) ? date('H:i:s', strtotime($today_attendance['check_out'])) : '-' ?></td>
-                        <td><?= htmlspecialchars($today_attendance['status'] ?? '-') ?></td>
-                    </tr>
-                </table>
+                <div class="summary-card mb-3">
+                    <div class="summary-blocks">
+                        <div class="summary-block" role="group" aria-label="Tanggal">
+                            <div class="summary-icon icon-blue" aria-hidden="true"><i class="fas fa-calendar-day"></i></div>
+                            <div>
+                                <div class="summary-label">Tanggal</div>
+                                <div class="summary-value"><?= htmlspecialchars($today) ?></div>
+                            </div>
+                        </div>
+
+                        <div class="summary-block" role="group" aria-label="Absen Masuk" title="Waktu absen masuk" data-checkin="<?= htmlspecialchars($today_attendance['check_in'] ?? '') ?>">
+                            <div class="summary-icon icon-green" aria-hidden="true"><i class="fas fa-sign-in-alt"></i></div>
+                            <div>
+                                <div class="summary-label">Absen Masuk</div>
+                                <div class="summary-value" id="checkInValue"><?= !empty($today_attendance['check_in']) ? date('H:i', strtotime($today_attendance['check_in'])) : '-' ?></div>
+                                <?php if (!empty($today_attendance['check_in'])): ?><div class="small text-muted" id="checkInDate"><?= date('d M Y', strtotime($today_attendance['check_in'])) ?></div><?php else: ?><div class="small text-muted">Belum absen</div><?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="summary-block" role="group" aria-label="Pulang" title="Waktu pulang" data-checkout="<?= htmlspecialchars($today_attendance['check_out'] ?? '') ?>">
+                            <div class="summary-icon icon-orange" aria-hidden="true"><i class="fas fa-sign-out-alt"></i></div>
+                            <div>
+                                <div class="summary-label">Pulang</div>
+                                <div class="summary-value" id="checkOutValue"><?= !empty($today_attendance['check_out']) ? date('H:i', strtotime($today_attendance['check_out'])) : '-' ?></div>
+                                <?php if (!empty($today_attendance['check_out'])): ?><div class="small text-muted" id="checkOutDate"><?= date('d M Y', strtotime($today_attendance['check_out'])) ?></div><?php else: ?><div class="small text-muted">Belum pulang</div><?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="summary-block" role="group" aria-label="Durasi" title="Durasi kerja hari ini">
+                            <div class="summary-icon icon-gray" aria-hidden="true"><i class="fas fa-hourglass-half"></i></div>
+                            <div>
+                                <div class="summary-label">Durasi</div>
+                                <div class="summary-value" id="durationValue"><?php
+                                    if (!empty($today_attendance['check_in']) && !empty($today_attendance['check_out'])) echo htmlspecialchars($work_duration);
+                                    else if (!empty($today_attendance['check_in']) && empty($today_attendance['check_out'])) echo htmlspecialchars($ongoing_duration) . ' (berjalan)';
+                                    else echo '-';
+                                ?></div>
+                                <?php $s = htmlspecialchars($today_attendance['status'] ?? '-');
+                                    $badgeClass = 'badge bg-secondary';
+                                    if (strtolower($s) === 'hadir') $badgeClass = 'badge bg-success';
+                                    if (strtolower($s) === 'alpa') $badgeClass = 'badge bg-danger';
+                                    if (strtolower($s) === 'sakit') $badgeClass = 'badge bg-warning text-dark';
+                                ?>
+                                <div class="mt-2"><span class="<?= $badgeClass ?> px-3 py-1" id="statusBadge"><?= $s ?></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 🔹 Tombol toggle untuk rekap -->
-                <div class="section-title">📘 Rekap Absensi</div>
-                <button id="toggleRekap" class="btn" style="margin-bottom:10px;">Lihat Rekap Absensi ⬇️</button>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="section-title">📘 Rekap Absensi</div>
+                    <div class="rekap-toolbar">
+                        <button id="toggleRekap" class="btn btn-sm btn-outline-primary">Lihat Rekap Absensi ⬇️</button>
+                        <button id="printRekap" class="btn btn-sm btn-outline-secondary">Cetak / Simpan PDF</button>
+                    </div>
+                </div>
 
-                <!-- 🔹 Table rekap absensi disembunyikan dulu -->
                 <div id="rekapContainer" style="display:none;">
-                    <table>
-                        <tr>
-                            <th>Hari</th>
-                            <th>Tanggal</th>
-                            <th>Jam Masuk</th>
-                            <th>Jam Pulang</th>
-                            <th>Status</th>
-                        </tr>
-                        <?php if (!empty($riwayat_bulan_ini)): ?>
-                            <?php foreach ($riwayat_bulan_ini as $row): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['hari']) ?></td>
-                                    <td><?= htmlspecialchars($row['tanggal']) ?></td>
-                                    <td><?= !empty($row['jam_masuk']) ? date('H:i', strtotime($row['jam_masuk'])) : '-' ?></td>
-                                    <td><?= !empty($row['jam_pulang']) ? date('H:i', strtotime($row['jam_pulang'])) : '-' ?></td>
-                                    <td><?= htmlspecialchars($row['status']) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="5">Belum ada data absensi bulan ini.</td></tr>
-                        <?php endif; ?>
-                    </table>
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover attendance-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:10%">Hari</th>
+                                            <th style="width:15%">Tanggal</th>
+                                            <th style="width:20%">Jam Masuk</th>
+                                            <th style="width:20%">Jam Pulang</th>
+                                            <th style="width:15%">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php if (!empty($riwayat_bulan_ini)): ?>
+                                        <?php foreach ($riwayat_bulan_ini as $row): ?>
+                                            <?php $status = strtolower($row['status']);
+                                                  $badge = 'secondary';
+                                                  if ($status === 'hadir') $badge = 'success';
+                                                  if ($status === 'alpa') $badge = 'danger';
+                                                  if ($status === 'sakit') $badge = 'warning';
+                                            ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($row['hari']) ?></td>
+                                                <td><?= htmlspecialchars($row['tanggal']) ?></td>
+                                                <td><?= !empty($row['jam_masuk']) ? date('H:i', strtotime($row['jam_masuk'])) : '-' ?></td>
+                                                <td><?= !empty($row['jam_pulang']) ? date('H:i', strtotime($row['jam_pulang'])) : '-' ?></td>
+                                                <td><span class="badge bg-<?= $badge ?>"><?= htmlspecialchars($row['status']) ?></span></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr><td colspan="5" class="text-center">Belum ada data absensi bulan ini.</td></tr>
+                                    <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div> <!-- Tutup inner container -->
@@ -319,6 +419,43 @@ document.getElementById('toggleRekap').addEventListener('click', function() {
         btn.textContent     = 'Lihat Rekap Absensi ⬇️';
     }
 });
+
+// Print / save PDF
+document.getElementById('printRekap').addEventListener('click', function() {
+    const rekap = document.getElementById('rekapContainer');
+    if (rekap.style.display === 'none') {
+        // show then print
+        rekap.style.display = 'block';
+        document.getElementById('toggleRekap').textContent = 'Sembunyikan Rekap Absensi ⬆️';
+        setTimeout(function(){ window.print(); }, 300);
+    } else {
+        window.print();
+    }
+});
+
+// Live update for ongoing duration (if check-in exists and no check-out)
+function parseDateSafe(v){ if(!v) return null; try { return new Date(v); } catch(e){ return null; } }
+function formatDurationBetween(start, end){ if(!start || !end) return '-';
+    const diff = Math.max(0, Math.floor((end - start)/1000));
+    const hours = Math.floor(diff/3600); const mins = Math.floor((diff%3600)/60);
+    return (hours>0?hours+'j ':'') + (mins>0?mins+'m':'0m');
+}
+function startOngoingTicker(){
+    const checkInAttr = document.querySelector('[data-checkin]')?.getAttribute('data-checkin') || '';
+    const checkOutAttr = document.querySelector('[data-checkout]')?.getAttribute('data-checkout') || '';
+    if(!checkInAttr || checkOutAttr) return; // nothing to do
+    const start = parseDateSafe(checkInAttr);
+    if(!start) return;
+    const el = document.getElementById('durationValue');
+    if(!el) return;
+    function tick(){
+        const now = new Date();
+        el.textContent = formatDurationBetween(start, now) + ' (berjalan)';
+    }
+    tick();
+    window._attendanceTicker = setInterval(tick, 60000);
+}
+document.addEventListener('DOMContentLoaded', startOngoingTicker);
 
 // Konfigurasi radius (diambil dari PHP agar konsisten)
 const KTI_LAT = <?php echo json_encode($KTI_LAT); ?>;

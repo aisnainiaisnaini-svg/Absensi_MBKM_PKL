@@ -22,21 +22,21 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'update_guidance')
     $admin_response = trim($_POST['admin_response'] ?? '');
     $company_supervisor = trim($_POST['company_supervisor'] ?? '');
     $school_supervisor = trim($_POST['school_supervisor'] ?? '');
+    $preferred_day = trim($_POST['preferred_day'] ?? '');
 
     if ($guidance_id && $participant_id) {
-        // Update tabel Guidance_PKL
+        // Update tabel Guidance_PKL (termasuk Preferred_Day jika diset oleh admin)
         executeQuery(
-            "
-            UPDATE Guidance_PKL
-            SET Status = ?,
+            "UPDATE Guidance_PKL
+            SET Preferred_Day = COALESCE(NULLIF(?,''), Preferred_Day),
+                Status = ?,
                 Admin_Response = ?,
                 Responded_At = CASE
                     WHEN ? <> '' THEN SYSDATETIME()
                     ELSE Responded_At
                 END
-            WHERE Id = ?
-        ",
-            [$status, $admin_response, $admin_response, $guidance_id],
+            WHERE Id = ?",
+            [$preferred_day, $status, $admin_response, $admin_response, $guidance_id]
         );
 
         // Opsional: update pembimbing di tabel Participants
@@ -95,6 +95,7 @@ $guidances = fetchAll(
         p.Id              AS participant_id,
         p.School          AS school,
         p.Major           AS major,
+        g.Preferred_Day   AS preferred_day,
         p.Company_Supervisor AS company_supervisor,
         p.School_Supervisor  AS school_supervisor,
 
@@ -268,7 +269,11 @@ $guidances = fetchAll(
                                             </div>
                                         </td>
                                         <td>
-                                            <?= date('d M Y H:i', strtotime($g['created_at'])) ?>
+                                            <?php if (!empty($g['preferred_day'])): ?>
+                                                <?= htmlspecialchars($g['preferred_day']) ?>
+                                            <?php else: ?>
+                                                <?= date('d M Y H:i', strtotime($g['created_at'])) ?>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <span class="badge bg-<?= $badge_class ?> badge-status">
@@ -322,6 +327,24 @@ $guidances = fetchAll(
                                                             <label class="form-label">Pertanyaan / Bahan
                                                                 Bimbingan</label>
                                                             <textarea class="form-control" rows="4" disabled><?= htmlspecialchars($g['question_text']) ?></textarea>
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Waktu yang diajukan Siswa</label>
+                                                            <select name="preferred_day" class="form-select">
+                                                                <option value="" <?= empty($g['preferred_day']) ? 'selected' : '' ?>>-- (biarkan) --</option>
+                                                                <option value="Senin, 09:00" <?= ($g['preferred_day'] ?? '') === 'Senin, 09:00' ? 'selected' : '' ?>>Senin, 09:00</option>
+                                                                <option value="Senin, 14:00" <?= ($g['preferred_day'] ?? '') === 'Senin, 14:00' ? 'selected' : '' ?>>Senin, 14:00</option>
+                                                                <option value="Selasa, 10:00" <?= ($g['preferred_day'] ?? '') === 'Selasa, 10:00' ? 'selected' : '' ?>>Selasa, 10:00</option>
+                                                                <option value="Selasa, 15:00" <?= ($g['preferred_day'] ?? '') === 'Selasa, 15:00' ? 'selected' : '' ?>>Selasa, 15:00</option>
+                                                                <option value="Rabu, 09:00" <?= ($g['preferred_day'] ?? '') === 'Rabu, 09:00' ? 'selected' : '' ?>>Rabu, 09:00</option>
+                                                                <option value="Rabu, 13:00" <?= ($g['preferred_day'] ?? '') === 'Rabu, 13:00' ? 'selected' : '' ?>>Rabu, 13:00</option>
+                                                                <option value="Kamis, 10:00" <?= ($g['preferred_day'] ?? '') === 'Kamis, 10:00' ? 'selected' : '' ?>>Kamis, 10:00</option>
+                                                                <option value="Kamis, 14:00" <?= ($g['preferred_day'] ?? '') === 'Kamis, 14:00' ? 'selected' : '' ?>>Kamis, 14:00</option>
+                                                                <option value="Jumat, 09:00" <?= ($g['preferred_day'] ?? '') === 'Jumat, 09:00' ? 'selected' : '' ?>>Jumat, 09:00</option>
+                                                                <option value="Jumat, 13:00" <?= ($g['preferred_day'] ?? '') === 'Jumat, 13:00' ? 'selected' : '' ?>>Jumat, 13:00</option>
+                                                            </select>
+                                                            <div class="small text-muted mt-1">Biarkan kosong untuk mempertahankan waktu saat ini.</div>
                                                         </div>
 
                                                         <hr>

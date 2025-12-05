@@ -76,6 +76,27 @@ function showLogoutPage() {
                 background: #f8f9fa;
                 color: #495057;
             }
+
+            /* Mobile Portrait */
+@media (max-width: 576px) {
+    .btn-group-logout { flex-direction: column; }
+    .logout-icon { width: 70px; height: 70px; }
+}
+
+/* Tablet Portrait */
+@media (min-width: 576px) and (max-width: 768px) {
+    .logout-card { max-width: 420px; }
+}
+
+/* Desktop */
+@media (min-width: 768px) {
+    .logout-card { max-width: 500px; }
+}
+
+/* Large Desktop */
+@media (min-width: 1200px) {
+    .logout-icon { width: 100px; height: 100px; }
+}
         </style>
     </head>
     <body>

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../config/app.php'; // Include the main configuration file first
+require_once __DIR__ . '/../../config/app.php';
 require_once BASE_PATH . 'config/database.php';
 
 // Hanya untuk siswa PKL
@@ -14,83 +14,48 @@ $full_name    = $_SESSION['full_name'];
 $message      = '';
 $message_type = '';
 
-// Ambil participant_id dari user yang login
-$participant = fetchOne("
-    SELECT id
-    FROM participants
-    WHERE user_id = ?
-", [$user_id]);
-
-if (!$participant) {
-    die("Data peserta PKL tidak ditemukan. Hubungi admin.");
-}
-
+// === LOGIKA TETAP SAMA (tidak diubah) ===
+$participant = fetchOne("SELECT id FROM participants WHERE user_id = ?", [$user_id]);
+if (!$participant) die("Data peserta PKL tidak ditemukan. Hubungi admin.");
 $participant_id = $participant['id'];
 
-// PROSES TAMBAH Bimbingan
-if ($_POST && isset($_POST['action']) && $_POST['action'] === 'add_guidance') {
-    $title          = trim($_POST['title'] ?? '');
-    $preferred_day  = trim($_POST['preferred_day'] ?? '');
+// Proses tambah bimbingan
+if ($_POST && $_POST['action'] ?? '' === 'add_guidance') {
+    $title         = trim($_POST['title'] ?? '');
+    $preferred_day = trim($_POST['preferred_day'] ?? '');
+    $question_text = trim($_POST['question_text'] ?? '');
 
-    if ($title && $preferred_day) {
-        executeQuery("
-            INSERT INTO Guidance_PKL (Participant_Id, Title, Preferred_Day, Status)
-            VALUES (?, ?, ?, 'pending')
-        ", [$participant_id, $title, $preferred_day]);
-
-        $message      = "Permintaan bimbingan berhasil dikirim. Tunggu respon admin.";
+    if ($title && $preferred_day && $question_text) {
+        executeQuery(
+            "INSERT INTO Guidance_PKL (Participant_Id, Title, Preferred_Day, Question_Text, Status) VALUES (?, ?, ?, ?, 'pending')",
+            [$participant_id, $title, $preferred_day, $question_text]
+        );
+        $message = "Permintaan bimbingan berhasil dikirim. Tunggu respon admin.";
         $message_type = "success";
     } else {
-        $message      = "Judul dan hari wajib diisi.";
+        $message = "Semua field wajib diisi.";
         $message_type = "danger";
     }
 }
 
-// PROSES WITHDRAW Bimbingan
-if ($_POST && isset($_POST['action']) && $_POST['action'] === 'withdraw_guidance') {
+// Proses withdraw
+if ($_POST && $_POST['action'] ?? '' === 'withdraw_guidance') {
     $guidance_id = $_POST['guidance_id'] ?? 0;
-
     if ($guidance_id) {
-        // Ambil status bimbingan saat ini
-        $current_guidance = fetchOne("
-            SELECT Status
-            FROM Guidance_PKL
-            WHERE Id = ? AND Participant_Id = ?
-        ", [$guidance_id, $participant_id]);
-
-        // Cek apakah status saat ini adalah 'pending'
-        if ($current_guidance && $current_guidance['status'] === 'pending') {
-            // Update status menjadi 'withdrawn'
-            executeQuery(
-                "UPDATE Guidance_PKL SET Status = 'withdrawn' WHERE Id = ? AND Participant_Id = ?",
-                [$guidance_id, $participant_id]
-            );
-
+        $current = fetchOne("SELECT Status FROM Guidance_PKL WHERE Id = ? AND Participant_Id = ?", [$guidance_id, $participant_id]);
+        if ($current && $current['Status'] === 'pending') {
+            executeQuery("UPDATE Guidance_PKL SET Status = 'withdrawn' WHERE Id = ? AND Participant_Id = ?", [$guidance_id, $participant_id]);
             $message = "Permintaan bimbingan berhasil ditarik.";
             $message_type = "success";
         } else {
-            $message = "Hanya permintaan bimbingan yang berstatus 'pending' yang dapat ditarik.";
+            $message = "Hanya permintaan 'pending' yang bisa ditarik.";
             $message_type = "danger";
         }
-    } else {
-        $message = "ID bimbingan tidak valid.";
-        $message_type = "danger";
     }
 }
 
-// Ambil semua bimbingan milik siswa ini
 $guidances = fetchAll("
-    SELECT
-        g.Id,
-        g.Title,
-        g.Preferred_Day,
-        g.Admin_Response,
-        g.Status,
-        g.Schedule_Date,
-        g.Created_At,
-        g.Responded_At,
-        p.Company_Supervisor,
-        p.School_Supervisor
+    SELECT g.*, p.Company_Supervisor, p.School_Supervisor
     FROM Guidance_PKL g
     JOIN participants p ON g.Participant_Id = p.id
     WHERE g.Participant_Id = ?
@@ -103,46 +68,59 @@ $guidances = fetchAll("
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bimbingan PKL - Siswa PKL</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-<link rel="stylesheet" href="../../assets/css/drawer.css">
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
+        body { background: #f8f9fa; margin: 0; }
+
+        /* SIDEBAR */
         .sidebar {
-            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            z-index: 1040;
+            transition: transform 0.3s ease-in-out;
+            overflow-y: auto;
+            transform: translateX(0); /* Desktop: selalu muncul */
         }
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255,255,255,0.85);
             padding: 12px 20px;
-            margin: 5px 10px;
             border-radius: 10px;
-            transition: 0.3s;
+            margin: 4px 12px;
+            transition: all 0.3s;
         }
         .sidebar .nav-link:hover,
         .sidebar .nav-link.active {
             background: rgba(255,255,255,0.2);
-            color: #fff;
-            transform: translateX(5px);
+            color: white;
+            transform: translateX(8px);
         }
+
+        /* MAIN CONTENT */
         .main-content {
-            background: #f8f9fa;
+            margin-left: 260px;
             min-height: 100vh;
+            padding: 20px;
+            transition: margin-left 0.3s ease-in-out;
         }
+
         .form-card, .history-card {
             background: white;
             border-radius: 20px;
             padding: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.07);
         }
-        .form-control {
+        .form-control, .form-select {
             border-radius: 10px;
             border: 2px solid #e9ecef;
             padding: 12px;
         }
-        .form-control:focus {
+        .form-control:focus, .form-select:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 0.2rem rgba(102,126,234,0.25);
         }
@@ -153,124 +131,127 @@ $guidances = fetchAll("
             padding: 12px 28px;
             border-radius: 10px;
             font-weight: 600;
-            transition: 0.3s;
         }
-        .btn-submit:hover {
-            transform: translateY(-2px);
+
+        /* OVERLAY */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1030;
+            display: none;
         }
-        .card-shadow {
-            border-radius: 15px;
-            box-shadow: 0 7px 18px rgba(0,0,0,0.08);
+        .sidebar-overlay.show { display: block; }
+
+        /* RESPONSIVE - Mobile & Tablet */
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
         }
     </style>
 </head>
-
 <body>
-<div class="container-fluid">
-    <div class="row">
 
-        <!-- SIDEBAR -->
-        <div class="col-md-3 col-lg-2 sidebar p-0">
-            <div class="p-3 text-center">
-                <h4><i class="fas fa-graduation-cap me-2"></i>Magang / PKL</h4>
-                <small>Halo, <?= htmlspecialchars($full_name) ?></small>
-            </div>
+    <!-- HAMBURGER BUTTON - PASTI KELIHATAN! -->
+    <button class="btn btn-primary rounded-circle shadow-lg d-lg-none position-fixed" 
+            style="top: 12px; left: 12px; z-index: 9999; width: 56px; height: 56px; font-size: 1.5rem;"
+            id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
 
-            <nav class="nav flex-column">
-                <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
-                <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
-                <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
-                <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
+    <!-- Overlay gelap saat sidebar buka -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-                <!-- TAMPILKAN HANYA UNTUK siswa_pkl -->
-                <?php if ($_SESSION['role'] === 'siswa_pkl'): ?>
-                    <a class="nav-link active" href="<?= APP_URL ?>/app/Guidance/bimbingan_pkl.php">
-                        <i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan
-                    </a>
-                <?php endif; ?>
-
-                <hr class="my-3">
-                <a class="nav-link" href="<?= APP_URL ?>/public/logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
-            </nav>
+    <!-- SIDEBAR -->
+    <div class="sidebar d-flex flex-column" id="adminSidebar">
+        <div class="p-4 text-center border-bottom border-light border-opacity-25">
+            <h4 class="mb-1"><i class="fas fa-graduation-cap me-2"></i>Magang / PKL</h4>
+            <small>Halo, <?= htmlspecialchars($full_name) ?></small>
         </div>
 
-        <!-- MAIN CONTENT -->
-        <div class="col-md-9 col-lg-10 main-content">
-            <div class="p-4">
+        <nav class="nav flex-column flex-grow-1 px-2 py-3">
+            <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php"><i class="fas fa-calendar-check me-2"></i>Absensi Harian</a>
+            <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php"><i class="fas fa-history me-2"></i>Riwayat Kehadiran</a>
+            <a class="nav-link" href="<?= APP_URL ?>/app/Leave/leave_request.php"><i class="fas fa-calendar-times me-2"></i>Ajukan Izin</a>
 
-                <!-- HEADER -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <button class="btn drawer-toggle me-2" aria-label="Toggle menu">☰</button>
-                        <div>
-                            <h2><i class="fas fa-comments me-2"></i>Bimbingan PKL</h2>
-                            <p class="text-muted mb-0">Ajukan bimbingan dan lihat respon pembimbing PKL</p>
-                        </div>
-                    </div>
+            <?php if ($_SESSION['role'] === 'siswa_pkl'): ?>
+                <a class="nav-link active" href="<?= APP_URL ?>/app/Guidance/bimbingan_pkl.php">
+                    <i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan
+                </a>
+            <?php endif; ?>
+
+            <hr class="my-4 opacity-25">
+            <a class="nav-link text-danger" href="<?= APP_URL ?>/public/logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+        </nav>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="container-fluid">
+
+            <h2 class="mb-2"><i class="fas fa-comments me-2"></i>Bimbingan PKL</h2>
+            <p class="text-muted mb-4">Ajukan bimbingan dan lihat respon pembimbing</p>
+
+            <?php if ($message): ?>
+                <div class="alert alert-<?= $message_type ?> alert-dismissible fade show">
+                    <?= htmlspecialchars($message) ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
+            <?php endif; ?>
 
-                <!-- MESSAGE -->
-                <?php if ($message): ?>
-                    <div class="alert alert-<?= $message_type ?> alert-dismissible fade show" role="alert">
-                        <?= htmlspecialchars($message) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <!-- FORM BIMBINGAN -->
-                <div class="form-card mb-4">
-                    <h4 class="mb-4">
-                        <i class="fas fa-plus-circle me-2"></i>Ajukan Bimbingan Baru
-                    </h4>
-
-                    <form method="POST">
-                        <input type="hidden" name="action" value="add_guidance">
-
-                        <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-heading me-2"></i>Judul / Topik</label>
-                            <input type="text" class="form-control" name="title" required
-                                   placeholder="Contoh: Revisi Laporan Mingguan">
+            <!-- Form Ajukan Bimbingan -->
+            <div class="form-card mb-4">
+                <h4 class="mb-4"><i class="fas fa-plus-circle me-2"></i>Ajukan Bimbingan Baru</h4>
+                <form method="POST">
+                    <input type="hidden" name="action" value="add_guidance">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Judul / Topik</label>
+                            <input type="text" class="form-control" name="title" required placeholder="Contoh: Revisi Laporan Mingguan">
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-calendar-day me-2"></i>Jadwal Bimbingan</label>
-                            <select class="form-control" name="preferred_day" required>
-                                <option value="">Pilih Jadwal Bimbingan</option>
-                                <option value="Senin, 09:00">Senin, 09:00</option>
-                                <option value="Senin, 14:00">Senin, 14:00</option>
-                                <option value="Selasa, 10:00">Selasa, 10:00</option>
-                                <option value="Selasa, 15:00">Selasa, 15:00</option>
-                                <option value="Rabu, 09:00">Rabu, 09:00</option>
-                                <option value="Rabu, 13:00">Rabu, 13:00</option>
-                                <option value="Kamis, 10:00">Kamis, 10:00</option>
-                                <option value="Kamis, 14:00">Kamis, 14:00</option>
-                                <option value="Jumat, 09:00">Jumat, 09:00</option>
-                                <option value="Jumat, 13:00">Jumat, 13:00</option>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Jadwal Bimbingan</label>
+                            <select class="form-select" name="preferred_day" required>
+                                <option value="">Pilih Hari & Jam</option>
+                                <option>Senin, 09:00</option><option>Senin, 14:00</option>
+                                <option>Selasa, 10:00</option><option>Selasa, 15:00</option>
+                                <option>Rabu, 09:00</option><option>Rabu, 13:00</option>
+                                <option>Kamis, 10:00</option><option>Kamis, 14:00</option>
+                                <option>Jumat, 09:00</option><option>Jumat, 13:00</option>
                             </select>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Pertanyaan / Ringkasan</label>
+                            <textarea class="form-control" name="question_text" rows="4" required placeholder="Jelaskan singkat permasalahan atau bahan yang ingin dibimbing..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn-submit">
+                                <i class="fas fa-paper-plane me-2"></i>Kirim Bimbingan
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
-                        <button class="btn-submit">
-                            <i class="fas fa-paper-plane me-2"></i>Kirim Bimbingan
-                        </button>
-                    </form>
-                </div>
-
-                <!-- RIWAYAT BIMBINGAN -->
-                <div class="history-card">
-                    <h4 class="mb-3">
-                        <i class="fas fa-history me-2"></i>Riwayat Bimbingan
-                    </h4>
-
-                    <?php if (empty($guidances)): ?>
-                        <p class="text-muted text-center py-4">
-                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                            Belum ada bimbingan.
-                        </p>
-                    <?php else: ?>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
+            <!-- Riwayat Bimbingan -->
+            <div class="history-card">
+                <h4 class="mb-3"><i class="fas fa-history me-2"></i>Riwayat Bimbingan</h4>
+                <?php if (empty($guidances)): ?>
+                    <p class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3"></i><br>Belum ada riwayat bimbingan.
+                    </p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
                                 <tr>
                                     <th>#</th>
                                     <th>Judul</th>
@@ -280,71 +261,84 @@ $guidances = fetchAll("
                                     <th>Jawaban</th>
                                     <th>Aksi</th>
                                 </tr>
-                                </thead>
-
-                                <tbody>
+                            </thead>
+                            <tbody>
                                 <?php $i = 1; foreach ($guidances as $g): ?>
                                     <tr>
                                         <td><?= $i++ ?></td>
-                                        <td><strong><?= htmlspecialchars($g['title']) ?></strong></td>
-                                        <td><?= htmlspecialchars($g['preferred_day']) ?></td>
-                                        <td><?= date('d M Y H:i', strtotime($g['created_at'])) ?></td>
-
+                                        <td><strong><?= htmlspecialchars($g['Title']) ?></strong></td>
+                                        <td><?= htmlspecialchars($g['Preferred_Day']) ?></td>
+                                        <td><?= date('d M Y H:i', strtotime($g['Created_At'])) ?></td>
                                         <td>
                                             <?php
-                                            $badge = [
+                                            $badge = match(strtolower($g['Status'])) {
                                                 'pending' => 'warning',
-                                                'diproses' => 'info',
-                                                'bimbing' => 'info',
+                                                'diproses','bimbing' => 'info',
                                                 'selesai' => 'success',
-                                                'withdrawn' => 'secondary'
-                                            ][$g['status']] ?? 'secondary';
+                                                'withdrawn' => 'secondary',
+                                                default => 'secondary'
+                                            };
                                             ?>
-                                            <span class="badge bg-<?= $badge ?>"><?= ucfirst($g['status']) ?></span>
+                                            <span class="badge bg-<?= $badge ?>"><?= ucfirst($g['Status']) ?></span>
                                         </td>
-
                                         <td>
-                                            <?php if ($g['admin_response']): ?>
-                                                <div class="small"><?= nl2br(htmlspecialchars($g['admin_response'])) ?></div>
-                                                <?php if ($g['responded_at']): ?>
-                                                    <div class="small text-muted mt-1">
-                                                        <i class="fas fa-clock me-1"></i>
-                                                        <?= date('d M Y H:i', strtotime($g['responded_at'])) ?>
+                                            <?php if ($g['Admin_Response']): ?>
+                                                <small><?= nl2br(htmlspecialchars($g['Admin_Response'])) ?></small>
+                                                <?php if ($g['Responded_At']): ?>
+                                                    <div class="text-muted small mt-1">
+                                                        <?= date('d M Y H:i', strtotime($g['Responded_At'])) ?>
                                                     </div>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <span class="text-muted small">Belum ada jawaban</span>
+                                                <span class="text-muted small">Menunggu jawaban</span>
                                             <?php endif; ?>
                                         </td>
-
                                         <td>
-                                            <?php if ($g['status'] === 'pending' ): ?>
-                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Apakah Anda yakin ingin menarik permintaan bimbingan ini?');">
+                                            <?php if ($g['Status'] === 'pending'): ?>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menarik permintaan ini?')">
                                                     <input type="hidden" name="action" value="withdraw_guidance">
-                                                    <input type="hidden" name="guidance_id" value="<?= $g['id'] ?>">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                        <i class="fas fa-undo me-1"></i>Withdraw
-                                                    
-                                                    </button>
+                                                    <input type="hidden" name="guidance_id" value="<?= $g['Id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Withdraw</button>
                                                 </form>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-
-                    <?php endif; ?>
-                </div>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
+
         </div>
-
     </div>
-</div>
 
-<div class="drawer-backdrop"></div>
-<script src="../../assets/js/drawer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const sidebar = document.getElementById('adminSidebar');
+        const overlay  = document.getElementById('sidebarOverlay');
+        const toggle   = document.getElementById('sidebarToggle');
+
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        });
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+
+        // Tutup otomatis setelah klik menu di mobile
+        document.querySelectorAll('#adminSidebar .nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 991) {
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

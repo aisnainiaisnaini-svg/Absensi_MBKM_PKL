@@ -4,8 +4,8 @@
 // $host = 'localhost';
 $host = 'localhost';
 $dbname = 'db_Pengawas';
-$username = 'sa';
-$password = '303030';
+$username = 'Ais';
+$password = '123';
 
 try {
     // Koneksi ke SQL Server

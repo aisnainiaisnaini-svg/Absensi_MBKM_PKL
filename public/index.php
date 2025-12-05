@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 $base_path = '../'; // Adjusted for public directory structure
-$title = 'Login - Aplikasi Pengawasan Magang/PKL';
+$title = 'Login - Aplikasi Absensi MBKM/PKL';
 include BASE_PATH . 'app/Core/_includes/header.php';
 ?>
 

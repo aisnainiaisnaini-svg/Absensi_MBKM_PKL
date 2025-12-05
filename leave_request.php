@@ -1,7 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../config/app.php'; // Include the main configuration file first
-require_once BASE_PATH . 'config/database.php';
+require_once 'config/database.php';
 
 // 🔐 Cek apakah user sudah login dan role peserta (mahasiswa MBKM / siswa PKL)
 if (
@@ -9,7 +8,7 @@ if (
     !isset($_SESSION['role']) ||
     !in_array($_SESSION['role'], ['mahasiswa_mbkm', 'siswa_pkl'])
 ) {
-    header('Location: ' . APP_URL . '/public/index.php');
+    header('Location: index.php');
     exit();
 }
 
@@ -27,7 +26,7 @@ $participant = fetchOne(
 );
 
 if (!$participant) {
-    header('Location: ' . APP_URL . '/public/dashboard.php');
+    header('Location: dashboard.php');
     exit();
 }
 
@@ -64,13 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Proses upload file jika ada
     if ($is_valid && isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
         $file = $_FILES['attachment'];
-        $upload_dir = BASE_PATH . 'uploads/izin/';
-
-        // Buat direktori jika belum ada
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-
+        $upload_dir = 'uploads/izin/';
         $allowed_types = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
         $max_size = 5 * 1024 * 1024; // 5MB
 
@@ -88,10 +81,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Buat nama file unik
             $new_filename = 'izin_' . time() . '_' . rand(1000, 9999) . '.' . $file_ext;
             $destination = $upload_dir . $new_filename;
-            $relative_path = 'uploads/izin/' . $new_filename;  // Store relative path in DB
 
             if (move_uploaded_file($file['tmp_name'], $destination)) {
-                $attachment_path = $relative_path;
+                $attachment_path = $destination;
             } else {
                 $message = 'Gagal mengupload file lampiran.';
                 $message_type = 'danger';
@@ -126,6 +118,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Proses aksi peserta (mis. batalkan pengajuan)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_leave') {
+    $leave_id = intval($_POST['leave_id'] ?? 0);
+    if ($leave_id > 0) {
+        try {
+            // Hanya batalkan jika milik peserta ini dan masih pending
+            executeQuery(
+                "UPDATE leave_requests SET status = 'rejected', notes = CONCAT(ISNULL(notes, ''), 'Dibatalkan oleh peserta pada ', CONVERT(VARCHAR(19), GETDATE(), 120)) WHERE Id = ? AND participant_id = ? AND status = 'pending'",
+                [$leave_id, $participant['id']]
+            );
+
+            header('Location: leave_request.php?msg=' . urlencode('Pengajuan izin dibatalkan.') . '&type=success');
+            exit();
+        } catch (PDOException $e) {
+            // fallback: redirect with error
+            header('Location: leave_request.php?msg=' . urlencode('Gagal membatalkan pengajuan.') . '&type=danger');
+            exit();
+        }
+    }
+}
+
 // Ambil riwayat pengajuan izin
 $leave_requests = fetchAll(
     "SELECT *
@@ -143,9 +156,67 @@ $leave_requests = fetchAll(
     <title>Ajukan Izin - Aplikasi Pengawasan Magang/PKL</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="../../assets/css/custom.css">
-    <link rel="stylesheet" href="../../assets/css/drawer.css">
+    <link rel="stylesheet" href="assets/css/drawer.css">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin: 5px 10px;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+        .main-content {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: transform 0.3s;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+        }
+        .history-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .status-badge {
+            font-size: 0.9rem;
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
@@ -160,29 +231,29 @@ $leave_requests = fetchAll(
                 </div>
 
                 <nav class="nav flex-column">
-                    <a class="nav-link" href="<?= APP_URL ?>/public/dashboard.php">
+                    <a class="nav-link" href="dashboard.php">
                         <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance.php">
+                    <a class="nav-link" href="attendance.php">
                         <i class="fas fa-calendar-check me-2"></i>Absensi Harian
                     </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Attendance/attendance_history.php">
+                    <a class="nav-link" href="attendance_history.php">
                         <i class="fas fa-history me-2"></i>Riwayat Kehadiran
                     </a>
                     <a class="nav-link active" href="leave_request.php">
                         <i class="fas fa-calendar-times me-2"></i>Ajukan Izin
                     </a>
-                    <a class="nav-link" href="<?= APP_URL ?>/app/Reports/activity_report.php">
+                    <a class="nav-link" href="activity_report.php">
                         <i class="fas fa-file-alt me-2"></i>Laporan Kegiatan
                     </a>
 
                     <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'siswa_pkl'): ?>
-                        <a class="nav-link" href="<?= APP_URL ?>/app/Guidance/bimbingan_pkl.php">
+                        <a class="nav-link" href="bimbingan_pkl.php">
                             <i class="fas fa-chalkboard-teacher me-2"></i>Bimbingan
                         </a>
                     <?php endif; ?>
                     <hr class="my-3">
-                    <a class="nav-link" href="<?= APP_URL ?>/public/logout.php">
+                    <a class="nav-link" href="logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout
                     </a>
                 </nav>
@@ -323,130 +394,128 @@ $leave_requests = fetchAll(
 
                                 <div class="table-responsive">
                                     <table class="table table-hover">
-                                       <thead>
-    <tr>
-        <th>Tanggal Pengajuan</th>
-        <th>Jenis Izin</th>
-        <th>Periode</th>
-        <th>Alasan</th>
-        <th>Lampiran</th>
-        <th>Status</th>
-        <th>Tanggapan</th>
-        <th>Aksi</th>
-    </tr>
-</thead>
+                                        <thead>
+                                            <tr>
+                                                <th>Tanggal Pengajuan</th>
+                                                <th>Jenis Izin</th>
+                                                <th>Periode</th>
+                                                <th>Alasan</th>
+                                                <th>Lampiran</th>
+                                                <th>Status</th>
+                                                <th>Tanggapan</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($leave_requests as $request): ?>
+                                                <tr>
+                                                    <td>
+                                                        <strong><?= isset($request['request_date']) ? date('d M Y', strtotime($request['request_date'])) : (isset($request['Request_Date']) ? date('d M Y', strtotime($request['Request_Date'])) : 'Tanggal Tidak Tersedia') ?></strong>
+                                                    </td>
+                                                    <td>
+                                                        <?php
+                                                        $type_labels = [
+                                                            'sakit'              => 'Sakit',
+                                                            'izin'               => 'Izin Pribadi',
+                                                            'keperluan_mendesak' => 'Izin Akademik',
+                                                            'izin_akademik'      => 'Izin Akademik'
+                                                        ];
+                                                        ?>
+                                                        <span class="badge bg-info">
+                                                            <?= $type_labels[$request['leave_type']] ?? $request['leave_type'] ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <strong><?= date('d M Y H:i', strtotime($request['start_date'])) ?></strong>
+                                                        <?php if ($request['start_date'] !== $request['end_date']): ?>
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                s/d <?= date('d M Y H:i', strtotime($request['end_date'])) ?>
+                                                            </small>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <span class="text-truncate d-inline-block" style="max-width: 200px;"
+                                                              title="<?= htmlspecialchars($request['reason']) ?>">
+                                                            <?= htmlspecialchars($request['reason']) ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <?php if (!empty($request['file_path'])): ?>
+                                                            <a href="<?= htmlspecialchars($request['file_path']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                                <i class="fas fa-download me-1"></i> Lihat
+                                                            </a>
+                                                        <?php else: ?>
+                                                            <span class="text-muted">Tidak ada</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php
+                                                        $status_class = '';
+                                                        $status_icon  = '';
+                                                        switch ($request['status']) {
+                                                            case 'pending':
+                                                                $status_class = 'warning';
+                                                                $status_icon  = 'clock';
+                                                                break;
+                                                            case 'approved':
+                                                                $status_class = 'success';
+                                                                $status_icon  = 'check-circle';
+                                                                break;
+                                                            case 'rejected':
+                                                                $status_class = 'danger';
+                                                                $status_icon  = 'times-circle';
+                                                                break;
+                                                            default:
+                                                                $status_class = 'secondary';
+                                                                $status_icon  = 'question-circle';
+                                                                break;
+                                                        }
+                                                        ?>
+                                                        <span class="badge bg-<?= $status_class ?> status-badge">
+                                                            <i class="fas fa-<?= $status_icon ?> me-1"></i>
+                                                            <?= ucfirst($request['status']) ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($request['status'] !== 'pending'): ?>
+                                                            <small class="text-muted">
+                                                                <?= $request['approved_at'] ? date('d M Y H:i', strtotime($request['approved_at'])) : '' ?>
+                                                            </small>
+                                                            <?php if ($request['notes']): ?>
+                                                                <br>
+                                                                <span class="text-truncate d-inline-block" style="max-width: 150px;"
+                                                                      title="<?= htmlspecialchars($request['notes']) ?>">
+                                                                    <?= htmlspecialchars($request['notes']) ?>
+                                                                </span>
+                                                            <?php endif; ?>
+                                                        <?php else: ?>
+                                                            <span class="text-muted">Menunggu</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($request['status'] === 'pending'): ?>
+                                                            <form method="POST" onsubmit="return confirm('Batalkan pengajuan ini?');">
+                                                                <input type="hidden" name="action" value="cancel_leave">
+                                                                <input type="hidden" name="leave_id" value="<?= (int)$request['Id'] ?>">
+                                                                <button type="submit" class="btn btn-sm btn-danger">Batalkan</button>
+                                                            </form>
+                                                        <?php else: ?>
+                                                            <button class="btn btn-sm btn-secondary" disabled>Tidak tersedia</button>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
 
-<tbody>
-    <?php foreach ($leave_requests as $request): ?>
-        <tr>
-            <td><strong><?= date('d M Y', strtotime($request['request_date'])) ?></strong></td>
-
-            <td>
-                <?php
-                $type_labels = [
-                    'sakit' => 'Sakit',
-                    'izin' => 'Izin Pribadi',
-                    'izin_akademik' => 'Izin Akademik',
-                    'keperluan_mendesak' => 'Izin Akademik'
-                ];
-                ?>
-                <span class="badge bg-info">
-                    <?= $type_labels[$request['leave_type']] ?? $request['leave_type'] ?>
-                </span>
-            </td>
-
-            <td>
-                <strong><?= date('d M Y H:i', strtotime($request['start_date'])) ?></strong>
-                <?php if ($request['start_date'] !== $request['end_date']): ?>
-                    <br>
-                    <small class="text-muted">
-                        s/d <?= date('d M Y H:i', strtotime($request['end_date'])) ?>
-                    </small>
-                <?php endif; ?>
-            </td>
-
-            <td>
-                <span class="text-truncate d-inline-block" style="max-width: 200px;"
-                      title="<?= htmlspecialchars($request['reason']) ?>">
-                    <?= htmlspecialchars($request['reason']) ?>
-                </span>
-            </td>
-
-            <td>
-                <?php if (!empty($request['file_path'])): ?>
-                    <a href="<?= APP_URL ?>/<?= htmlspecialchars($request['file_path']) ?>" 
-                       target="_blank" class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-download"></i> Lihat
-                    </a>
-                <?php else: ?>
-                    <span class="text-muted">Tidak ada</span>
-                <?php endif; ?>
-            </td>
-
-            <td>
-                <?php
-                $status_class = [
-                    'pending' => 'warning',
-                    'approved' => 'success',
-                    'rejected' => 'danger',
-                    'withdrawn' => 'secondary'
-                ][$request['status']] ?? 'secondary';
-
-                $status_icon = [
-                    'pending' => 'clock',
-                    'approved' => 'check-circle',
-                    'rejected' => 'times-circle',
-                    'withdrawn' => 'undo'
-                ][$request['status']] ?? 'question-circle';
-                ?>
-
-                <span class="badge bg-<?= $status_class ?>">
-                    <i class="fas fa-<?= $status_icon ?>"></i>
-                    <?= ucfirst($request['status']) ?>
-                </span>
-            </td>
-
-            <td>
-                <?php if ($request['status'] !== 'pending'): ?>
-                    <small class="text-muted">
-                        <?= $request['approved_at'] ? date('d M Y H:i', strtotime($request['approved_at'])) : '' ?>
-                    </small>
-                    <?php if ($request['notes']): ?>
-                        <br>
-                        <span class="text-truncate d-inline-block" style="max-width: 150px;"
-                              title="<?= htmlspecialchars($request['notes']) ?>">
-                            <?= htmlspecialchars($request['notes']) ?>
-                        </span>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <span class="text-muted">Menunggu</span>
-                <?php endif; ?>
-            </td>
-
-            <!-- 🔥 Kolom AKSI baru -->
-            <td>
-                <?php if ($request['status'] === 'pending'): ?>
-                    <a href="leave_withdraw.php?id=<?= $request['id'] ?>"
-                       onclick="return confirm('Yakin ingin menarik kembali pengajuan ini?')"
-                       class="btn btn-sm btn-outline-danger">
-                        <i class="fas fa-undo"></i> Withdraw
-                    </a>
-                <?php else: ?>
-                    <span class="text-muted"><i class="fas fa-lock"></i> -</span>
-                <?php endif; ?>
-            </td>
-        </tr>
-    <?php endforeach; ?>
-
-    <?php if (empty($leave_requests)): ?>
-        <tr>
-            <td colspan="8" class="text-center text-muted py-4">
-                <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                Belum ada pengajuan izin
-            </td>
-        </tr>
-    <?php endif; ?>
-</tbody>
+                                            <?php if (empty($leave_requests)): ?>
+                                                <tr>
+                                                    <td colspan="6" class="text-center text-muted py-4">
+                                                        <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                                        Belum ada pengajuan izin
+                                                    </td>
+                                                </tr>
+                                            <?php endif; ?>
+                                        </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -459,7 +528,7 @@ $leave_requests = fetchAll(
 
     <div class="drawer-backdrop"></div>
     <button class="btn drawer-toggle floating-toggle" aria-label="Toggle menu" style="position:fixed;bottom:18px;left:18px;z-index:1400;">☰</button>
-    <script src="../../assets/js/drawer.js"></script>
+    <script src="assets/js/drawer.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Update durasi izin

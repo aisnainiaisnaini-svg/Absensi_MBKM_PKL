@@ -3,8 +3,8 @@ session_start();
 require_once __DIR__ . '/../../config/app.php'; // Include the main configuration file first
 require_once BASE_PATH . 'config/database.php';
 
-// Cek apakah user sudah login dan role pembimbing
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'pembimbing') {
+// Cek apakah user sudah login dan memiliki role yang diizinkan (pembimbing atau admin)
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['pembimbing', 'admin'])) {
     header('Location: ' . APP_URL . '/public/index.php');
     exit();
 }
@@ -189,7 +189,6 @@ $pending_reports = fetchOne("SELECT COUNT(*) AS count
             </div>
         </div>
     </div>
-</body>
 <div class="drawer-backdrop"></div>
 <button class="btn drawer-toggle floating-toggle" aria-label="Toggle menu" style="position:fixed;bottom:18px;left:18px;z-index:1400;">☰</button>
 <script src="<?= APP_URL ?>/assets/js/drawer.js"></script>
